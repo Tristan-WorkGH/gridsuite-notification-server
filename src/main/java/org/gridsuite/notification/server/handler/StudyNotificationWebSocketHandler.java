@@ -37,6 +37,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 
+import static org.gridsuite.notification.server.Utils.passHeader;
+
 /**
  * <p>
  * A WebSocketHandler that sends messages from a broker to websockets opened by clients,
@@ -138,12 +140,6 @@ public class StudyNotificationWebSocketHandler extends AbstractNotificationWebSo
         passHeader(messageHeader, resHeader, HEADER_INDEXATION_STATUS);
 
         return resHeader;
-    }
-
-    private static void passHeader(Map<String, Object> messageHeader, Map<String, Object> resHeader, String headerName) {
-        if (messageHeader.get(headerName) != null) {
-            resHeader.put(headerName, messageHeader.get(headerName));
-        }
     }
 
     public Flux<WebSocketMessage> receive(WebSocketSession webSocketSession) {

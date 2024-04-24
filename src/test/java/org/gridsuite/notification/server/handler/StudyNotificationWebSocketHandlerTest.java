@@ -42,6 +42,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
+import static org.gridsuite.notification.server.Utils.passHeader;
 import static org.gridsuite.notification.server.handler.StudyNotificationWebSocketHandler.*;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -195,7 +196,7 @@ public class StudyNotificationWebSocketHandlerTest {
                     return (filterStudyUuid == null || filterStudyUuid.equals(studyUuid)) && (filterUpdateType == null || filterUpdateType.equals(updateType));
                 })
                 .map(GenericMessage::getHeaders)
-                .map(this::toResultHeader)
+                .map(StudyNotificationWebSocketHandlerTest::toResultHeader)
                 .collect(Collectors.toList());
 
         List<Map<String, Object>> actual = messages.stream().map(t -> {
@@ -209,31 +210,20 @@ public class StudyNotificationWebSocketHandlerTest {
         assertNotEquals(0, actual.size());
     }
 
-    private Map<String, Object> toResultHeader(Map<String, Object> messageHeader) {
-        var resHeader = new HashMap<String, Object>();
-        resHeader.put(HEADER_TIMESTAMP, messageHeader.get(HEADER_TIMESTAMP));
+    private static Map<String, Object> toResultHeader(Map<String, Object> messageHeader) {
+        Map<String, Object> resHeader = new HashMap<>();
         resHeader.put(HEADER_UPDATE_TYPE, messageHeader.get(HEADER_UPDATE_TYPE));
-
-        passHeaderRef(messageHeader, resHeader, HEADER_STUDY_UUID);
-        passHeaderRef(messageHeader, resHeader, HEADER_ERROR);
-        passHeaderRef(messageHeader, resHeader, HEADER_SUBSTATIONS_IDS);
-        passHeaderRef(messageHeader, resHeader, HEADER_NEW_NODE);
-        passHeaderRef(messageHeader, resHeader, HEADER_NODE);
-        passHeaderRef(messageHeader, resHeader, HEADER_NODES);
-        passHeaderRef(messageHeader, resHeader, HEADER_REMOVE_CHILDREN);
-        passHeaderRef(messageHeader, resHeader, HEADER_PARENT_NODE);
-        passHeaderRef(messageHeader, resHeader, HEADER_INSERT_MODE);
-        passHeaderRef(messageHeader, resHeader, HEADER_INDEXATION_STATUS);
-
-        resHeader.remove(HEADER_TIMESTAMP);
-
+        passHeader(messageHeader, resHeader, HEADER_STUDY_UUID);
+        passHeader(messageHeader, resHeader, HEADER_ERROR);
+        passHeader(messageHeader, resHeader, HEADER_SUBSTATIONS_IDS);
+        passHeader(messageHeader, resHeader, HEADER_NEW_NODE);
+        passHeader(messageHeader, resHeader, HEADER_NODE);
+        passHeader(messageHeader, resHeader, HEADER_NODES);
+        passHeader(messageHeader, resHeader, HEADER_REMOVE_CHILDREN);
+        passHeader(messageHeader, resHeader, HEADER_PARENT_NODE);
+        passHeader(messageHeader, resHeader, HEADER_INSERT_MODE);
+        passHeader(messageHeader, resHeader, HEADER_INDEXATION_STATUS);
         return resHeader;
-    }
-
-    private void passHeaderRef(Map<String, Object> messageHeader, HashMap<String, Object> resHeader, String headerName) {
-        if (messageHeader.get(headerName) != null) {
-            resHeader.put(headerName, messageHeader.get(headerName));
-        }
     }
 
     @Test

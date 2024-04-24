@@ -1,7 +1,6 @@
 package org.gridsuite.notification.server.handler;
 
 import lombok.AccessLevel;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.messaging.Message;
@@ -28,7 +27,6 @@ import java.util.logging.Level;
  * and to discard the messages when no websockets are connected.
  * </p>
  */
-@Data
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 abstract class AbstractNotificationWebSocketHandler implements WebSocketHandler {
     private final int heartbeatInterval;

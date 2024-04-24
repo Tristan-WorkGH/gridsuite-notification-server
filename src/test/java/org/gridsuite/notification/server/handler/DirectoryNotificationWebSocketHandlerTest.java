@@ -37,6 +37,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
+import static org.gridsuite.notification.server.Utils.passHeader;
 import static org.gridsuite.notification.server.handler.DirectoryNotificationWebSocketHandler.*;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -192,7 +193,7 @@ public class DirectoryNotificationWebSocketHandlerTest {
                             && (filterElementUuid == null || filterElementUuid.equals(studyUuid) || filterElementUuid.equals(directoryUuid));
                 })
                 .map(GenericMessage::getHeaders)
-                .map(this::toResultHeader)
+                .map(DirectoryNotificationWebSocketHandlerTest::toResultHeader)
                 .collect(Collectors.toList());
 
         List<Map<String, Object>> actual = messages.stream().map(t -> {
@@ -206,31 +207,15 @@ public class DirectoryNotificationWebSocketHandlerTest {
         assertNotEquals(0, actual.size());
     }
 
-    private Map<String, Object> toResultHeader(Map<String, Object> messageHeader) {
-        var resHeader = new HashMap<String, Object>();
-        resHeader.put(HEADER_TIMESTAMP, messageHeader.get(HEADER_TIMESTAMP));
+    private static Map<String, Object> toResultHeader(Map<String, Object> messageHeader) {
+        Map<String, Object> resHeader = new HashMap<>();
         resHeader.put(HEADER_UPDATE_TYPE, messageHeader.get(HEADER_UPDATE_TYPE));
-
-        if (messageHeader.get(HEADER_DIRECTORY_UUID) != null) {
-            resHeader.put(HEADER_DIRECTORY_UUID, messageHeader.get(HEADER_DIRECTORY_UUID));
-        }
-        if (messageHeader.get(HEADER_ERROR) != null) {
-            resHeader.put(HEADER_ERROR, messageHeader.get(HEADER_ERROR));
-        }
-        if (messageHeader.get(HEADER_IS_ROOT_DIRECTORY) != null) {
-            resHeader.put(HEADER_IS_ROOT_DIRECTORY, messageHeader.get(HEADER_IS_ROOT_DIRECTORY));
-        }
-        if (messageHeader.get(HEADER_NOTIFICATION_TYPE) != null) {
-            resHeader.put(HEADER_NOTIFICATION_TYPE, messageHeader.get(HEADER_NOTIFICATION_TYPE));
-        }
-        if (messageHeader.get(HEADER_ELEMENT_NAME) != null) {
-            resHeader.put(HEADER_ELEMENT_NAME, messageHeader.get(HEADER_ELEMENT_NAME));
-        }
-        if (messageHeader.get(HEADER_STUDY_UUID) != null) {
-            resHeader.put(HEADER_STUDY_UUID, messageHeader.get(HEADER_STUDY_UUID));
-        }
-        resHeader.remove(HEADER_TIMESTAMP);
-
+        passHeader(messageHeader, resHeader, HEADER_DIRECTORY_UUID);
+        passHeader(messageHeader, resHeader, HEADER_ERROR);
+        passHeader(messageHeader, resHeader, HEADER_IS_ROOT_DIRECTORY);
+        passHeader(messageHeader, resHeader, HEADER_NOTIFICATION_TYPE);
+        passHeader(messageHeader, resHeader, HEADER_ELEMENT_NAME);
+        passHeader(messageHeader, resHeader, HEADER_STUDY_UUID);
         return resHeader;
     }
 

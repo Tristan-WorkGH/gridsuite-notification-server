@@ -34,6 +34,8 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 
+import static org.gridsuite.notification.server.Utils.passHeader;
+
 /**
  * <p>
  * A WebSocketHandler that sends messages from a broker to websockets opened by clients,
@@ -130,24 +132,13 @@ public class DirectoryNotificationWebSocketHandler extends AbstractNotificationW
         resHeader.put(HEADER_TIMESTAMP, messageHeader.get(HEADER_TIMESTAMP));
         resHeader.put(HEADER_UPDATE_TYPE, messageHeader.get(HEADER_UPDATE_TYPE));
 
-        if (messageHeader.get(HEADER_DIRECTORY_UUID) != null) {
-            resHeader.put(HEADER_DIRECTORY_UUID, messageHeader.get(HEADER_DIRECTORY_UUID));
-        }
-        if (messageHeader.get(HEADER_ERROR) != null) {
-            resHeader.put(HEADER_ERROR, messageHeader.get(HEADER_ERROR));
-        }
-        if (messageHeader.get(HEADER_IS_ROOT_DIRECTORY) != null) {
-            resHeader.put(HEADER_IS_ROOT_DIRECTORY, messageHeader.get(HEADER_IS_ROOT_DIRECTORY));
-        }
-        if (messageHeader.get(HEADER_NOTIFICATION_TYPE) != null) {
-            resHeader.put(HEADER_NOTIFICATION_TYPE, messageHeader.get(HEADER_NOTIFICATION_TYPE));
-        }
-        if (messageHeader.get(HEADER_ELEMENT_NAME) != null) {
-            resHeader.put(HEADER_ELEMENT_NAME, messageHeader.get(HEADER_ELEMENT_NAME));
-        }
-        if (messageHeader.get(HEADER_STUDY_UUID) != null) {
-            resHeader.put(HEADER_STUDY_UUID, messageHeader.get(HEADER_STUDY_UUID));
-        }
+        passHeader(messageHeader, resHeader, HEADER_DIRECTORY_UUID);
+        passHeader(messageHeader, resHeader, HEADER_ERROR);
+        passHeader(messageHeader, resHeader, HEADER_IS_ROOT_DIRECTORY);
+        passHeader(messageHeader, resHeader, HEADER_NOTIFICATION_TYPE);
+        passHeader(messageHeader, resHeader, HEADER_ELEMENT_NAME);
+        passHeader(messageHeader, resHeader, HEADER_STUDY_UUID);
+
         return resHeader;
     }
 

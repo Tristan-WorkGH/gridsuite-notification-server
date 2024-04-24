@@ -33,6 +33,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
+import static org.gridsuite.notification.server.Utils.passHeader;
 import static org.gridsuite.notification.server.handler.ConfigGlobalNotificationWebSocketHandler.HEADER_DURATION;
 import static org.gridsuite.notification.server.handler.ConfigGlobalNotificationWebSocketHandler.HEADER_MESSAGE_TYPE;
 import static org.gridsuite.notification.server.handler.ConfigNotificationWebSocketHandler.*;
@@ -110,7 +111,8 @@ public class ConfigGlobalNotificationWebSocketHandlerTest {
         refMessages.stream().map(headers -> new GenericMessage<>("", headers)).forEach(sink::next);
         sink.complete();
 
-        List<Map<String, Object>> expected = refMessages.stream().map(this::toResultHeader)
+        List<Map<String, Object>> expected = refMessages.stream()
+                .map(ConfigGlobalNotificationWebSocketHandlerTest::toResultHeader)
                 .collect(Collectors.toList());
 
         List<Map<String, Object>> actual = messages.stream()
@@ -125,14 +127,10 @@ public class ConfigGlobalNotificationWebSocketHandlerTest {
         assertEquals(expected, actual);
     }
 
-    private Map<String, Object> toResultHeader(Map<String, Object> messageHeader) {
-        var resHeader = new HashMap<String, Object>();
-        if (messageHeader.get(HEADER_MESSAGE_TYPE) != null) {
-            resHeader.put(HEADER_MESSAGE_TYPE, messageHeader.get(HEADER_MESSAGE_TYPE));
-        }
-        if (messageHeader.get(HEADER_DURATION) != null) {
-            resHeader.put(HEADER_DURATION, messageHeader.get(HEADER_DURATION));
-        }
+    private static Map<String, Object> toResultHeader(Map<String, Object> messageHeader) {
+        Map<String, Object> resHeader = new HashMap<>();
+        passHeader(messageHeader, resHeader, HEADER_MESSAGE_TYPE);
+        passHeader(messageHeader, resHeader, HEADER_DURATION);
         return resHeader;
     }
 
