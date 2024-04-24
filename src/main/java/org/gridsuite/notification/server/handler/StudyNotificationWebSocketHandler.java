@@ -10,9 +10,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import org.gridsuite.notification.server.dto.study.Filters;
-import org.gridsuite.notification.server.dto.study.FiltersToAdd;
-import org.gridsuite.notification.server.dto.study.FiltersToRemove;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -140,45 +137,6 @@ public class StudyNotificationWebSocketHandler extends AbstractNotificationWebSo
         passHeader(messageHeader, resHeader, HEADER_INDEXATION_STATUS);
 
         return resHeader;
-    }
-
-    public Flux<WebSocketMessage> receive(WebSocketSession webSocketSession) {
-        return webSocketSession.receive()
-                .doOnNext(webSocketMessage -> {
-                    try {
-                        //if it's not the heartbeat
-                        if (webSocketMessage.getType().equals(WebSocketMessage.Type.TEXT)) {
-                            String wsPayload = webSocketMessage.getPayloadAsText();
-                            LOGGER.debug("Message received : {} by session {}", wsPayload, webSocketSession.getId());
-                            Filters receivedFilters = jacksonObjectMapper.readValue(webSocketMessage.getPayloadAsText(), Filters.class);
-                            handleReceivedFilters(webSocketSession, receivedFilters);
-                        }
-                    } catch (JsonProcessingException e) {
-                        LOGGER.error(e.toString(), e);
-                    }
-                });
-    }
-
-    private void handleReceivedFilters(WebSocketSession webSocketSession, Filters filters) {
-        if (filters.getFiltersToRemove() != null) {
-            FiltersToRemove filtersToRemove = filters.getFiltersToRemove();
-            if (Boolean.TRUE.equals(filtersToRemove.getRemoveUpdateType())) {
-                webSocketSession.getAttributes().remove(FILTER_UPDATE_TYPE);
-            }
-            if (Boolean.TRUE.equals(filtersToRemove.getRemoveStudyUuid())) {
-                webSocketSession.getAttributes().remove(FILTER_STUDY_UUID);
-            }
-        }
-        if (filters.getFiltersToAdd() != null) {
-            FiltersToAdd filtersToAdd = filters.getFiltersToAdd();
-            //because null is not allowed in ConcurrentHashMap and will cause the websocket to close
-            if (filtersToAdd.getUpdateType() != null) {
-                webSocketSession.getAttributes().put(FILTER_UPDATE_TYPE, filtersToAdd.getUpdateType());
-            }
-            if (filtersToAdd.getStudyUuid() != null) {
-                webSocketSession.getAttributes().put(FILTER_STUDY_UUID, filtersToAdd.getStudyUuid());
-            }
-        }
     }
 
     @NotNull

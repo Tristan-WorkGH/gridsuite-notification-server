@@ -72,7 +72,6 @@ public class ConfigNotificationWebSocketHandlerTest {
             return new WebSocketMessage(WebSocketMessage.Type.PING, f.apply(dataBufferFactory));
         });
         when(ws.getId()).thenReturn("testsession");
-
     }
 
     private void withFilters(String filterUserId, String filterAppName) {

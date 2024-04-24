@@ -72,7 +72,6 @@ public class ConfigGlobalNotificationWebSocketHandlerTest {
             return new WebSocketMessage(WebSocketMessage.Type.PING, f.apply(dataBufferFactory));
         });
         when(ws.getId()).thenReturn("testsession");
-
     }
 
     @Test

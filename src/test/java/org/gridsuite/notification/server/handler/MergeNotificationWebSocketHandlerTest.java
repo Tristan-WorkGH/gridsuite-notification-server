@@ -76,7 +76,6 @@ public class MergeNotificationWebSocketHandlerTest {
             return new WebSocketMessage(WebSocketMessage.Type.PING, f.apply(dataBufferFactory));
         });
         when(ws.getId()).thenReturn("testsession");
-
     }
 
     private void withFilters(String processUuid, String businessProcess) {
@@ -126,7 +125,6 @@ public class MergeNotificationWebSocketHandlerTest {
                         "date", deserializedHeaders.get("date"),
                         "status", deserializedHeaders.get("status"),
                         "tso", deserializedHeaders.get("tso"));
-
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
