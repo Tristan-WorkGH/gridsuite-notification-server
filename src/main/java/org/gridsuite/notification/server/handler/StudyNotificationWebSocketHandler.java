@@ -13,6 +13,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.gridsuite.notification.server.dto.study.Filters;
 import org.gridsuite.notification.server.dto.study.FiltersToAdd;
 import org.gridsuite.notification.server.dto.study.FiltersToRemove;
+import org.gridsuite.notification.server.exception.NotificationServerRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -119,13 +120,13 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
         }).filter(message -> {
             String filterUpdateType = (String) webSocketSession.getAttributes().get(FILTER_UPDATE_TYPE);
             return filterUpdateType == null || filterUpdateType.equals(message.getHeaders().get(HEADER_UPDATE_TYPE));
-        }).map(m -> {
+        }).<String>handle((m, sink) -> {
             try {
-                return jacksonObjectMapper.writeValueAsString(Map.of(
+                sink.next(jacksonObjectMapper.writeValueAsString(Map.of(
                         "payload", m.getPayload(),
-                        "headers", toResultHeader(m.getHeaders())));
+                        "headers", toResultHeader(m.getHeaders()))));
             } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
+                sink.error(new NotificationServerRuntimeException("Error while generating JSON", e));
             }
         }).log(CATEGORY_WS_OUTPUT, Level.FINE).map(webSocketSession::textMessage);
     }

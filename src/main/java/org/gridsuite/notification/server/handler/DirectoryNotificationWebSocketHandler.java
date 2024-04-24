@@ -112,14 +112,16 @@ public class DirectoryNotificationWebSocketHandler implements WebSocketHandler {
             return !(filterUpdateType != null && !filterUpdateType.equals(message.getHeaders().get(HEADER_UPDATE_TYPE)));
         }).filter(message -> {
             Set<String> filterElementUuid = (Set<String>) webSocketSession.getAttributes().get(FILTER_ELEMENT_UUIDS);
-            return filterElementUuid == null || filterElementUuid.contains(message.getHeaders().get(HEADER_DIRECTORY_UUID)) || filterElementUuid.contains(message.getHeaders().get(HEADER_STUDY_UUID));
-        }).map(m -> {
+            return filterElementUuid == null
+                || filterElementUuid.contains(message.getHeaders().get(HEADER_DIRECTORY_UUID, String.class))
+                || filterElementUuid.contains(message.getHeaders().get(HEADER_STUDY_UUID, String.class));
+        }).<String>handle((m, sink) -> {
             try {
-                return jacksonObjectMapper.writeValueAsString(Map.of(
+                sink.next(jacksonObjectMapper.writeValueAsString(Map.of(
                         "payload", m.getPayload(),
-                        "headers", toResultHeader(m.getHeaders())));
+                        "headers", toResultHeader(m.getHeaders()))));
             } catch (JsonProcessingException e) {
-                throw new NotificationServerRuntimeException("Error while generating JSON", e);
+                sink.error(new NotificationServerRuntimeException("Error while generating JSON", e));
             }
         }).log(CATEGORY_WS_OUTPUT, Level.FINE).map(webSocketSession::textMessage);
     }

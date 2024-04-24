@@ -8,6 +8,7 @@ package org.gridsuite.notification.server.handler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.gridsuite.notification.server.exception.NotificationServerRuntimeException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +23,6 @@ import reactor.core.publisher.ConnectableFlux;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -79,7 +79,7 @@ public class ConfigGlobalNotificationWebSocketHandler implements WebSocketHandle
      * map from the broker flux to the filtered flux for one websocket client, extracting only relevant fields.
      */
     private Flux<WebSocketMessage> notificationFlux(WebSocketSession webSocketSession) {
-        return flux.map(m -> {
+        return flux.<String>handle((m, sink) -> {
             try {
                 Map<String, Object> headers = new HashMap<>();
                 if (m.getHeaders().get(HEADER_MESSAGE_TYPE) != null) {
@@ -88,9 +88,9 @@ public class ConfigGlobalNotificationWebSocketHandler implements WebSocketHandle
                 if (m.getHeaders().get(HEADER_DURATION) != null) {
                     headers.put(HEADER_DURATION, m.getHeaders().get(HEADER_DURATION));
                 }
-                return jacksonObjectMapper.writeValueAsString(Map.of("payload", m.getPayload(), "headers", headers));
+                sink.next(jacksonObjectMapper.writeValueAsString(Map.of("payload", m.getPayload(), "headers", headers)));
             } catch (JsonProcessingException e) {
-                throw new UncheckedIOException(e);
+                sink.error(new NotificationServerRuntimeException("Error while generating JSON", e));
             }
         }).log(CATEGORY_WS_OUTPUT, Level.FINE).map(webSocketSession::textMessage);
     }
