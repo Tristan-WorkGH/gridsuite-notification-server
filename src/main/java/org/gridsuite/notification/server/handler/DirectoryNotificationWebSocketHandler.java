@@ -6,19 +6,13 @@
  */
 package org.gridsuite.notification.server.handler;
 
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.*;
-import java.util.function.Consumer;
-import java.util.logging.Level;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.gridsuite.notification.server.dto.directory.FiltersToAdd;
 import org.gridsuite.notification.server.dto.directory.Filters;
+import org.gridsuite.notification.server.dto.directory.FiltersToAdd;
 import org.gridsuite.notification.server.dto.directory.FiltersToRemove;
 import org.gridsuite.notification.server.exception.NotificationServerRuntimeException;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,13 +20,19 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.ConnectableFlux;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+
+import java.net.URI;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.logging.Level;
 
 /**
  * <p>
@@ -49,7 +49,7 @@ import reactor.core.publisher.Mono;
  * @author Jon Harper <jon.harper at rte-france.com>
  */
 @Component
-public class DirectoryNotificationWebSocketHandler implements WebSocketHandler {
+public class DirectoryNotificationWebSocketHandler extends AbstractNotificationWebSocketHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DirectoryNotificationWebSocketHandler.class);
     private static final String CATEGORY_BROKER_INPUT = DirectoryNotificationWebSocketHandler.class.getName() + ".messages.input-broker";
@@ -70,31 +70,32 @@ public class DirectoryNotificationWebSocketHandler implements WebSocketHandler {
     static final String HEADER_STUDY_UUID = "studyUuid";
 
     private final ObjectMapper jacksonObjectMapper;
-    private final int heartbeatInterval;
-    private Flux<Message<String>> flux;
 
     public DirectoryNotificationWebSocketHandler(ObjectMapper jacksonObjectMapper, @Value("${notification.websocket.heartbeat.interval:30}") int heartbeatInterval) {
+        super(heartbeatInterval);
         this.jacksonObjectMapper = jacksonObjectMapper;
-        this.heartbeatInterval = heartbeatInterval;
     }
 
     @Bean
     public Consumer<Flux<Message<String>>> consumeDirectoryNotification() {
-        return f -> {
-            ConnectableFlux<Message<String>> c = f.log(CATEGORY_BROKER_INPUT, Level.FINE).publish();
-            this.flux = c;
-            c.connect();
-            // Force connect 1 fake subscriber to consumme messages as they come.
-            // Otherwise, reactorcore buffers some messages (not until the connectable flux had
-            // at least one subscriber. Is there a better way ?
-            c.subscribe();
-        };
+        return consumeMessage(CATEGORY_BROKER_INPUT);
     }
 
-    /**
-     * map from the broker flux to the filtered flux for one websocket client, extracting only relevant fields.
-     */
-    private Flux<WebSocketMessage> notificationFlux(WebSocketSession webSocketSession, String userId) {
+    @NotNull
+    @Override
+    protected Flux<WebSocketMessage> notificationFlux(@NotNull final WebSocketSession webSocketSession) {
+        URI uri = webSocketSession.getHandshakeInfo().getUri();
+        String userId = webSocketSession.getHandshakeInfo().getHeaders().getFirst(HEADER_USER_ID);
+        MultiValueMap<String, String> parameters = UriComponentsBuilder.fromUri(uri).build(true).getQueryParams();
+        String filterUpdateType = parameters.getFirst(QUERY_UPDATE_TYPE);
+        String filterElementUuid = parameters.getFirst(QUERY_ELEMENT_UUID);
+        if (filterUpdateType != null) {
+            webSocketSession.getAttributes().put(FILTER_UPDATE_TYPE, filterUpdateType);
+        }
+        if (filterElementUuid != null) {
+            webSocketSession.getAttributes().put(FILTER_ELEMENT_UUIDS, new HashSet<>(Set.of(filterElementUuid)));
+        }
+        LOGGER.debug("New websocket connection for {} with userId={},  updateType={}, elementsUuid={}", uri, userId, filterUpdateType, filterElementUuid);
         return flux.transform(f -> {
             Flux<Message<String>> res = f;
             if (userId != null) {
@@ -108,11 +109,11 @@ public class DirectoryNotificationWebSocketHandler implements WebSocketHandler {
             }
             return res;
         }).filter(message -> {
-            String filterUpdateType = (String) webSocketSession.getAttributes().get(FILTER_UPDATE_TYPE);
-            return !(filterUpdateType != null && !filterUpdateType.equals(message.getHeaders().get(HEADER_UPDATE_TYPE)));
+            String filterUpdateTypeAttr = (String) webSocketSession.getAttributes().get(FILTER_UPDATE_TYPE);
+            return !(filterUpdateTypeAttr != null && !filterUpdateTypeAttr.equals(message.getHeaders().get(HEADER_UPDATE_TYPE)));
         }).filter(message -> {
-            Set<String> filterElementUuid = (Set<String>) webSocketSession.getAttributes().get(FILTER_ELEMENT_UUIDS);
-            return filterElementUuid == null || filterElementUuid.contains(message.getHeaders().get(HEADER_DIRECTORY_UUID)) || filterElementUuid.contains(message.getHeaders().get(HEADER_STUDY_UUID));
+            Set<String> filterElementUuidAttr = (Set<String>) webSocketSession.getAttributes().get(FILTER_ELEMENT_UUIDS);
+            return filterElementUuidAttr == null || filterElementUuidAttr.contains(message.getHeaders().get(HEADER_DIRECTORY_UUID)) || filterElementUuidAttr.contains(message.getHeaders().get(HEADER_STUDY_UUID));
         }).map(m -> {
             try {
                 return jacksonObjectMapper.writeValueAsString(Map.of(
@@ -148,14 +149,6 @@ public class DirectoryNotificationWebSocketHandler implements WebSocketHandler {
             resHeader.put(HEADER_STUDY_UUID, messageHeader.get(HEADER_STUDY_UUID));
         }
         return resHeader;
-    }
-
-    /**
-     * A heartbeat flux sending websockets pings
-     */
-    private Flux<WebSocketMessage> heartbeatFlux(WebSocketSession webSocketSession) {
-        return Flux.interval(Duration.ofSeconds(heartbeatInterval)).map(n -> webSocketSession
-                .pingMessage(dbf -> dbf.wrap((webSocketSession.getId() + "-" + n).getBytes(StandardCharsets.UTF_8))));
     }
 
     public Flux<WebSocketMessage> receive(WebSocketSession webSocketSession) {
@@ -199,25 +192,5 @@ public class DirectoryNotificationWebSocketHandler implements WebSocketHandler {
                 webSocketSession.getAttributes().put(FILTER_ELEMENT_UUIDS, elementUuids);
             }
         }
-    }
-
-    @Override
-    public Mono<Void> handle(WebSocketSession webSocketSession) {
-        URI uri = webSocketSession.getHandshakeInfo().getUri();
-        String userId = webSocketSession.getHandshakeInfo().getHeaders().getFirst(HEADER_USER_ID);
-        MultiValueMap<String, String> parameters = UriComponentsBuilder.fromUri(uri).build(true).getQueryParams();
-        String filterUpdateType = parameters.getFirst(QUERY_UPDATE_TYPE);
-        String filterElementUuid = parameters.getFirst(QUERY_ELEMENT_UUID);
-        if (filterUpdateType != null) {
-            webSocketSession.getAttributes().put(FILTER_UPDATE_TYPE, filterUpdateType);
-        }
-        if (filterElementUuid != null) {
-            webSocketSession.getAttributes().put(FILTER_ELEMENT_UUIDS, new HashSet<>(Set.of(filterElementUuid)));
-        }
-        LOGGER.debug("New websocket connection for userId={},  updateType={}, elementsUuid={}", userId, filterUpdateType, filterElementUuid);
-        return webSocketSession
-                .send(notificationFlux(webSocketSession, userId)
-                        .mergeWith(heartbeatFlux(webSocketSession)))
-                .and(receive(webSocketSession));
     }
 }

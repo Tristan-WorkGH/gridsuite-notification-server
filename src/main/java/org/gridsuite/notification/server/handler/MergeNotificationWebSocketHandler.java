@@ -8,23 +8,22 @@ package org.gridsuite.notification.server.handler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.ConnectableFlux;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.io.UncheckedIOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -47,8 +46,9 @@ import java.util.stream.Collectors;
  * @author Franck Lecuyer <franck.lecuyer at rte-france.com>
  */
 @Component
-public class MergeNotificationWebSocketHandler implements WebSocketHandler {
+public class MergeNotificationWebSocketHandler extends AbstractNotificationWebSocketHandler {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(MergeNotificationWebSocketHandler.class);
     private static final String CATEGORY_BROKER_INPUT = MergeNotificationWebSocketHandler.class.getName() + ".input-broker-messages";
     private static final String CATEGORY_WS_OUTPUT = MergeNotificationWebSocketHandler.class.getName() + ".output-websocket-messages";
 
@@ -64,31 +64,27 @@ public class MergeNotificationWebSocketHandler implements WebSocketHandler {
     private static final Set<String> HEADERS = Set.of(HEADER_TSO, HEADER_STATUS, HEADER_DATE, HEADER_PROCESS_UUID, HEADER_BUSINESS_PROCESS, HEADER_ERROR);
 
     private final ObjectMapper jacksonObjectMapper;
-    private final int heartbeatInterval;
-    private Flux<Message<String>> flux;
 
     public MergeNotificationWebSocketHandler(ObjectMapper jacksonObjectMapper, @Value("${notification.websocket.heartbeat.interval:30}") int heartbeatInterval) {
+        super(heartbeatInterval);
         this.jacksonObjectMapper = jacksonObjectMapper;
-        this.heartbeatInterval = heartbeatInterval;
     }
 
     @Bean
     public Consumer<Flux<Message<String>>> consumeMergeNotification() {
-        return f -> {
-            ConnectableFlux<Message<String>> c = f.log(CATEGORY_BROKER_INPUT, Level.FINE).publish();
-            this.flux = c;
-            c.connect();
-            // Force connect 1 fake subscriber to consumme messages as they come.
-            // Otherwise, reactorcore buffers some messages (not until the connectable flux had
-            // at least one subscriber. Is there a better way ?
-            c.subscribe();
-        };
+        return consumeMessage(CATEGORY_BROKER_INPUT);
     }
 
-    /**
-     * map from the broker flux to the filtered flux for one websocket client, extracting only relevant fields.
-     */
-    private Flux<WebSocketMessage> notificationFlux(WebSocketSession webSocketSession, String processUuid, String businessProcess) {
+    @NotNull
+    @Override
+    protected Flux<WebSocketMessage> notificationFlux(@NotNull final WebSocketSession webSocketSession) {
+        URI uri = webSocketSession.getHandshakeInfo().getUri();
+        MultiValueMap<String, String> parameters = UriComponentsBuilder.fromUri(uri).build().getQueryParams();
+        String processUuid = parameters.getFirst(QUERY_PROCESS_UUID);
+        String businessProcess = parameters.getFirst(QUERY_BUSINESS_PROCESS);
+        LOGGER.debug("New websocket connection for {} with {}={} and {}={}", uri,
+                QUERY_PROCESS_UUID, processUuid, QUERY_BUSINESS_PROCESS, businessProcess);
+
         return flux.transform(f -> {
             Flux<Message<String>> res = f;
             if (processUuid != null && businessProcess != null) {
@@ -110,26 +106,5 @@ public class MergeNotificationWebSocketHandler implements WebSocketHandler {
                 throw new UncheckedIOException(e);
             }
         }).log(CATEGORY_WS_OUTPUT, Level.FINE).map(webSocketSession::textMessage);
-    }
-
-    /**
-     * A heartbeat flux sending websockets pings
-     */
-    private Flux<WebSocketMessage> heartbeatFlux(WebSocketSession webSocketSession) {
-        return Flux.interval(Duration.ofSeconds(heartbeatInterval)).map(n -> webSocketSession
-                .pingMessage(dbf -> dbf.wrap((webSocketSession.getId() + "-" + n).getBytes(StandardCharsets.UTF_8))));
-    }
-
-    @Override
-    public Mono<Void> handle(WebSocketSession webSocketSession) {
-        URI uri = webSocketSession.getHandshakeInfo().getUri();
-        MultiValueMap<String, String> parameters = UriComponentsBuilder.fromUri(uri).build().getQueryParams();
-        String processUuid = parameters.getFirst(QUERY_PROCESS_UUID);
-        String businessProcess = parameters.getFirst(QUERY_BUSINESS_PROCESS);
-        return webSocketSession
-                .send(
-                        notificationFlux(webSocketSession, processUuid, businessProcess)
-                        .mergeWith(heartbeatFlux(webSocketSession)))
-                .and(webSocketSession.receive());
     }
 }
