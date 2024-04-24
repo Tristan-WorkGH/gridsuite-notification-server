@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-package org.gridsuite.config.notification.server;
+package org.gridsuite.notification.server.config;
 
 import java.time.Duration;
 import java.util.*;
@@ -33,9 +33,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
-import static org.gridsuite.config.notification.server.GlobalNotificationWebSocketHandler.HEADER_DURATION;
-import static org.gridsuite.config.notification.server.GlobalNotificationWebSocketHandler.HEADER_MESSAGE_TYPE;
-import static org.gridsuite.config.notification.server.NotificationWebSocketHandler.*;
+import static org.gridsuite.notification.server.config.GlobalNotificationWebSocketHandler.HEADER_DURATION;
+import static org.gridsuite.notification.server.config.GlobalNotificationWebSocketHandler.HEADER_MESSAGE_TYPE;
+import static org.gridsuite.notification.server.config.NotificationWebSocketHandler.*;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;

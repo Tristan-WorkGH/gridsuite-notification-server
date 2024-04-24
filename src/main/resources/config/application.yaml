@@ -13,5 +13,5 @@ spring:
           destination: ${powsybl-ws.rabbitmq.destination.prefix:}config.message
 logging:
   level:
-    org.gridsuite.config.notification.server.NotificationWebSocketHandler: INFO
-    org.gridsuite.config.notification.server.GlobalNotificationWebSocketHandler: INFO
+    org.gridsuite.notification.server.config.NotificationWebSocketHandler: INFO
+    org.gridsuite.notification.server.config.GlobalNotificationWebSocketHandler: INFO
