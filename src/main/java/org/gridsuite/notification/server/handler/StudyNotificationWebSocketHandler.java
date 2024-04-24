@@ -10,9 +10,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import org.gridsuite.notification.server.dto.study.Filters;
-import org.gridsuite.notification.server.dto.study.FiltersToAdd;
-import org.gridsuite.notification.server.dto.study.FiltersToRemove;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,7 +18,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -31,12 +28,13 @@ import reactor.core.publisher.Mono;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.logging.Level;
+
+import static org.gridsuite.notification.server.Utils.passHeader;
 
 /**
  * <p>
@@ -52,7 +50,7 @@ import java.util.logging.Level;
  * @author Jon Harper <jon.harper at rte-france.com>
  */
 @Component
-public class StudyNotificationWebSocketHandler implements WebSocketHandler {
+public class StudyNotificationWebSocketHandler extends AbstractNotificationWebSocketHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(StudyNotificationWebSocketHandler.class);
     private static final String CATEGORY_BROKER_INPUT = StudyNotificationWebSocketHandler.class.getName() + ".messages.input-broker";
@@ -81,13 +79,11 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
     public static final String CONNECTIONS_METER_NAME = "app.connections";
 
     private final ObjectMapper jacksonObjectMapper;
-    private final int heartbeatInterval;
     private final Map<String, Integer> userConnections = new ConcurrentHashMap<>();
-    private Flux<Message<String>> flux;
 
     public StudyNotificationWebSocketHandler(ObjectMapper jacksonObjectMapper, MeterRegistry meterRegistry, @Value("${notification.websocket.heartbeat.interval:30}") int heartbeatInterval) {
+        super(heartbeatInterval);
         this.jacksonObjectMapper = jacksonObjectMapper;
-        this.heartbeatInterval = heartbeatInterval;
         initMetrics(meterRegistry);
     }
 
@@ -98,21 +94,12 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
 
     @Bean
     public Consumer<Flux<Message<String>>> consumeStudyNotification() {
-        return f -> {
-            ConnectableFlux<Message<String>> c = f.log(CATEGORY_BROKER_INPUT, Level.FINE).publish();
-            this.flux = c;
-            c.connect();
-            // Force connect 1 fake subscriber to consumme messages as they come.
-            // Otherwise, reactorcore buffers some messages (not until the connectable flux had
-            // at least one subscriber). Is there a better way ?
-            c.subscribe();
-        };
+        return consumeMessage(CATEGORY_BROKER_INPUT);
     }
 
-    /**
-     * map from the broker flux to the filtered flux for one websocket client, extracting only relevant fields.
-     */
-    private Flux<WebSocketMessage> notificationFlux(WebSocketSession webSocketSession) {
+    @NotNull
+    @Override
+    protected Flux<WebSocketMessage> notificationFlux(@NotNull WebSocketSession webSocketSession) {
         return flux.filter(message -> {
             String filterStudyUuid = (String) webSocketSession.getAttributes().get(FILTER_STUDY_UUID);
             return filterStudyUuid == null || filterStudyUuid.equals(message.getHeaders().get(HEADER_STUDY_UUID));
@@ -152,61 +139,9 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
         return resHeader;
     }
 
-    private static void passHeader(Map<String, Object> messageHeader, Map<String, Object> resHeader, String headerName) {
-        if (messageHeader.get(headerName) != null) {
-            resHeader.put(headerName, messageHeader.get(headerName));
-        }
-    }
-
-    /**
-     * A heartbeat flux sending websockets pings
-     */
-    private Flux<WebSocketMessage> heartbeatFlux(WebSocketSession webSocketSession) {
-        return Flux.interval(Duration.ofSeconds(heartbeatInterval)).map(n -> webSocketSession
-                .pingMessage(dbf -> dbf.wrap((webSocketSession.getId() + "-" + n).getBytes(StandardCharsets.UTF_8))));
-    }
-
-    public Flux<WebSocketMessage> receive(WebSocketSession webSocketSession) {
-        return webSocketSession.receive()
-                .doOnNext(webSocketMessage -> {
-                    try {
-                        //if it's not the heartbeat
-                        if (webSocketMessage.getType().equals(WebSocketMessage.Type.TEXT)) {
-                            String wsPayload = webSocketMessage.getPayloadAsText();
-                            LOGGER.debug("Message received : {} by session {}", wsPayload, webSocketSession.getId());
-                            Filters receivedFilters = jacksonObjectMapper.readValue(webSocketMessage.getPayloadAsText(), Filters.class);
-                            handleReceivedFilters(webSocketSession, receivedFilters);
-                        }
-                    } catch (JsonProcessingException e) {
-                        LOGGER.error(e.toString(), e);
-                    }
-                });
-    }
-
-    private void handleReceivedFilters(WebSocketSession webSocketSession, Filters filters) {
-        if (filters.getFiltersToRemove() != null) {
-            FiltersToRemove filtersToRemove = filters.getFiltersToRemove();
-            if (Boolean.TRUE.equals(filtersToRemove.getRemoveUpdateType())) {
-                webSocketSession.getAttributes().remove(FILTER_UPDATE_TYPE);
-            }
-            if (Boolean.TRUE.equals(filtersToRemove.getRemoveStudyUuid())) {
-                webSocketSession.getAttributes().remove(FILTER_STUDY_UUID);
-            }
-        }
-        if (filters.getFiltersToAdd() != null) {
-            FiltersToAdd filtersToAdd = filters.getFiltersToAdd();
-            //because null is not allowed in ConcurrentHashMap and will cause the websocket to close
-            if (filtersToAdd.getUpdateType() != null) {
-                webSocketSession.getAttributes().put(FILTER_UPDATE_TYPE, filtersToAdd.getUpdateType());
-            }
-            if (filtersToAdd.getStudyUuid() != null) {
-                webSocketSession.getAttributes().put(FILTER_STUDY_UUID, filtersToAdd.getStudyUuid());
-            }
-        }
-    }
-
+    @NotNull
     @Override
-    public Mono<Void> handle(WebSocketSession webSocketSession) {
+    public Mono<Void> handle(@NotNull WebSocketSession webSocketSession) {
         URI uri = webSocketSession.getHandshakeInfo().getUri();
         MultiValueMap<String, String> parameters = UriComponentsBuilder.fromUri(uri).build(true).getQueryParams();
         String filterStudyUuid = parameters.getFirst(QUERY_STUDY_UUID);
@@ -219,9 +154,7 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
             webSocketSession.getAttributes().put(FILTER_UPDATE_TYPE, filterUpdateType);
         }
 
-        return webSocketSession
-                .send(notificationFlux(webSocketSession).mergeWith(heartbeatFlux(webSocketSession)))
-                .and(receive(webSocketSession))
+        return super.handle(webSocketSession)
                 .doFirst(() -> updateConnectionMetrics(webSocketSession))
                 .doFinally(s -> updateDisconnectionMetrics(webSocketSession));
     }

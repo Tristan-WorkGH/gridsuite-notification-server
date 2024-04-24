@@ -6,26 +6,23 @@
  */
 package org.gridsuite.notification.server.handler;
 
-import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-import java.util.stream.Stream;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
-import org.gridsuite.notification.server.dto.directory.FiltersToAdd;
+import lombok.extern.slf4j.Slf4j;
+import org.gridsuite.notification.server.TestUtils;
 import org.gridsuite.notification.server.dto.directory.Filters;
+import org.gridsuite.notification.server.dto.directory.FiltersToAdd;
 import org.gridsuite.notification.server.dto.directory.FiltersToRemove;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
-import org.springframework.core.io.buffer.*;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferFactory;
+import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.GenericMessage;
@@ -38,6 +35,14 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import java.util.stream.Stream;
+
+import static org.gridsuite.notification.server.Utils.passHeader;
 import static org.gridsuite.notification.server.handler.DirectoryNotificationWebSocketHandler.*;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -46,6 +51,7 @@ import static org.mockito.Mockito.*;
 /**
  * @author Jon Harper <jon.harper at rte-france.com>
  */
+@Slf4j
 public class DirectoryNotificationWebSocketHandlerTest {
 
     private ObjectMapper objectMapper;
@@ -91,7 +97,6 @@ public class DirectoryNotificationWebSocketHandlerTest {
             return new WebSocketMessage(WebSocketMessage.Type.PING, f.apply(dataBufferFactory));
         });
         when(ws2.getId()).thenReturn("testsession");
-
     }
 
     private void setUpUriComponentBuilder(String connectedUserId) {
@@ -192,7 +197,7 @@ public class DirectoryNotificationWebSocketHandlerTest {
                             && (filterElementUuid == null || filterElementUuid.equals(studyUuid) || filterElementUuid.equals(directoryUuid));
                 })
                 .map(GenericMessage::getHeaders)
-                .map(this::toResultHeader)
+                .map(DirectoryNotificationWebSocketHandlerTest::toResultHeader)
                 .toList();
 
         List<Map<String, Object>> actual = messages.stream().map(t -> {
@@ -206,31 +211,41 @@ public class DirectoryNotificationWebSocketHandlerTest {
         assertNotEquals(0, actual.size());
     }
 
-    private Map<String, Object> toResultHeader(Map<String, Object> messageHeader) {
-        var resHeader = new HashMap<String, Object>();
-        resHeader.put(HEADER_TIMESTAMP, messageHeader.get(HEADER_TIMESTAMP));
+    private static void handleReceivedFilters(WebSocketSession webSocketSession, Filters filters) {
+        if (filters.getFiltersToRemove() != null) {
+            FiltersToRemove filtersToRemove = filters.getFiltersToRemove();
+            if (Boolean.TRUE.equals(filtersToRemove.getRemoveUpdateType())) {
+                webSocketSession.getAttributes().remove(FILTER_UPDATE_TYPE);
+            }
+            if (filtersToRemove.getRemoveElementUuids() != null) {
+                Set<String> elementUuids = (Set<String>) webSocketSession.getAttributes().get(FILTER_ELEMENT_UUIDS);
+                filtersToRemove.getRemoveElementUuids().forEach(elementUuids::remove);
+                webSocketSession.getAttributes().put(FILTER_ELEMENT_UUIDS, elementUuids);
+            }
+        }
+        if (filters.getFiltersToAdd() != null) {
+            FiltersToAdd filtersToAdd = filters.getFiltersToAdd();
+            //because null is not allowed in ConcurrentHashMap and will cause the websocket to close
+            if (filtersToAdd.getUpdateType() != null) {
+                webSocketSession.getAttributes().put(FILTER_UPDATE_TYPE, filtersToAdd.getUpdateType());
+            }
+            if (filtersToAdd.getElementUuids() != null) {
+                Set<String> elementUuids = (Set<String>) webSocketSession.getAttributes().get(FILTER_ELEMENT_UUIDS);
+                elementUuids.addAll(filters.getFiltersToAdd().getElementUuids());
+                webSocketSession.getAttributes().put(FILTER_ELEMENT_UUIDS, elementUuids);
+            }
+        }
+    }
+
+    private static Map<String, Object> toResultHeader(Map<String, Object> messageHeader) {
+        Map<String, Object> resHeader = new HashMap<>();
         resHeader.put(HEADER_UPDATE_TYPE, messageHeader.get(HEADER_UPDATE_TYPE));
-
-        if (messageHeader.get(HEADER_DIRECTORY_UUID) != null) {
-            resHeader.put(HEADER_DIRECTORY_UUID, messageHeader.get(HEADER_DIRECTORY_UUID));
-        }
-        if (messageHeader.get(HEADER_ERROR) != null) {
-            resHeader.put(HEADER_ERROR, messageHeader.get(HEADER_ERROR));
-        }
-        if (messageHeader.get(HEADER_IS_ROOT_DIRECTORY) != null) {
-            resHeader.put(HEADER_IS_ROOT_DIRECTORY, messageHeader.get(HEADER_IS_ROOT_DIRECTORY));
-        }
-        if (messageHeader.get(HEADER_NOTIFICATION_TYPE) != null) {
-            resHeader.put(HEADER_NOTIFICATION_TYPE, messageHeader.get(HEADER_NOTIFICATION_TYPE));
-        }
-        if (messageHeader.get(HEADER_ELEMENT_NAME) != null) {
-            resHeader.put(HEADER_ELEMENT_NAME, messageHeader.get(HEADER_ELEMENT_NAME));
-        }
-        if (messageHeader.get(HEADER_STUDY_UUID) != null) {
-            resHeader.put(HEADER_STUDY_UUID, messageHeader.get(HEADER_STUDY_UUID));
-        }
-        resHeader.remove(HEADER_TIMESTAMP);
-
+        passHeader(messageHeader, resHeader, HEADER_DIRECTORY_UUID);
+        passHeader(messageHeader, resHeader, HEADER_ERROR);
+        passHeader(messageHeader, resHeader, HEADER_IS_ROOT_DIRECTORY);
+        passHeader(messageHeader, resHeader, HEADER_NOTIFICATION_TYPE);
+        passHeader(messageHeader, resHeader, HEADER_ELEMENT_NAME);
+        passHeader(messageHeader, resHeader, HEADER_STUDY_UUID);
         return resHeader;
     }
 
@@ -309,7 +324,7 @@ public class DirectoryNotificationWebSocketHandlerTest {
         var notificationWebSocketHandler = new DirectoryNotificationWebSocketHandler(new ObjectMapper(), 60);
         var flux = Flux.<Message<String>>empty();
         notificationWebSocketHandler.consumeDirectoryNotification().accept(flux);
-        notificationWebSocketHandler.receive(ws2).subscribe();
+        TestUtils.receive(objectMapper, log, ws2, Filters.class, DirectoryNotificationWebSocketHandlerTest::handleReceivedFilters).subscribe();
 
         assertEquals("updateTypeFilter", map.get(FILTER_UPDATE_TYPE));
         assertEquals(2, ((Set<String>) map.get(FILTER_ELEMENT_UUIDS)).size());
@@ -339,7 +354,7 @@ public class DirectoryNotificationWebSocketHandlerTest {
         var notificationWebSocketHandler = new DirectoryNotificationWebSocketHandler(new ObjectMapper(), Integer.MAX_VALUE);
         var flux = Flux.<Message<String>>empty();
         notificationWebSocketHandler.consumeDirectoryNotification().accept(flux);
-        notificationWebSocketHandler.receive(ws2).subscribe();
+        TestUtils.receive(objectMapper, log, ws2, Filters.class, DirectoryNotificationWebSocketHandlerTest::handleReceivedFilters).subscribe();
 
         assertNull(ws2.getAttributes().get(FILTER_UPDATE_TYPE));
         assertEquals(1, ((Set<String>) map.get(FILTER_ELEMENT_UUIDS)).size());
@@ -361,7 +376,7 @@ public class DirectoryNotificationWebSocketHandlerTest {
         var notificationWebSocketHandler = new DirectoryNotificationWebSocketHandler(new ObjectMapper(), Integer.MAX_VALUE);
         var flux = Flux.<Message<String>>empty();
         notificationWebSocketHandler.consumeDirectoryNotification().accept(flux);
-        notificationWebSocketHandler.receive(ws2).subscribe();
+        TestUtils.receive(objectMapper, log, ws2, Filters.class, DirectoryNotificationWebSocketHandlerTest::handleReceivedFilters).subscribe();
 
         assertNull(map.get(FILTER_UPDATE_TYPE));
         assertNull(map.get(FILTER_ELEMENT_UUIDS));
@@ -379,7 +394,7 @@ public class DirectoryNotificationWebSocketHandlerTest {
         var notificationWebSocketHandler = new DirectoryNotificationWebSocketHandler(new ObjectMapper(), 60);
         var flux = Flux.<Message<String>>empty();
         notificationWebSocketHandler.consumeDirectoryNotification().accept(flux);
-        notificationWebSocketHandler.receive(ws2).subscribe();
+        TestUtils.receive(objectMapper, log, ws2, Filters.class, DirectoryNotificationWebSocketHandlerTest::handleReceivedFilters).subscribe();
 
         assertNull(map.get(FILTER_UPDATE_TYPE));
         assertNull(map.get(FILTER_ELEMENT_UUIDS));

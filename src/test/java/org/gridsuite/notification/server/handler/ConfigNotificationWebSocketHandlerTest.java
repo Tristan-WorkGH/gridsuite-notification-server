@@ -35,6 +35,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
+import static org.gridsuite.notification.server.Utils.passHeader;
 import static org.gridsuite.notification.server.handler.ConfigNotificationWebSocketHandler.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -72,7 +73,6 @@ public class ConfigNotificationWebSocketHandlerTest {
             return new WebSocketMessage(WebSocketMessage.Type.PING, f.apply(dataBufferFactory));
         });
         when(ws.getId()).thenReturn("testsession");
-
     }
 
     private void withFilters(String filterUserId, String filterAppName) {
@@ -146,7 +146,7 @@ public class ConfigNotificationWebSocketHandlerTest {
                     String appName = (String) headers.get(HEADER_APP_NAME);
                     return filterUserId.equals(userId) && (filterAppName == null || COMMON_APP_NAME.equals(appName) || filterAppName.equals(appName));
                 })
-                .map(this::toResultHeader)
+                .map(ConfigNotificationWebSocketHandlerTest::toResultHeader)
                 .toList();
 
         List<Map<String, Object>> actual = messages.stream()
@@ -161,14 +161,10 @@ public class ConfigNotificationWebSocketHandlerTest {
         assertEquals(expected, actual);
     }
 
-    private Map<String, Object> toResultHeader(Map<String, Object> messageHeader) {
-        var resHeader = new HashMap<String, Object>();
-        if (messageHeader.get(HEADER_APP_NAME) != null) {
-            resHeader.put(HEADER_APP_NAME, messageHeader.get(HEADER_APP_NAME));
-        }
-        if (messageHeader.get(HEADER_PARAMETER_NAME) != null) {
-            resHeader.put(HEADER_PARAMETER_NAME, messageHeader.get(HEADER_PARAMETER_NAME));
-        }
+    private static Map<String, Object> toResultHeader(Map<String, Object> messageHeader) {
+        Map<String, Object> resHeader = new HashMap<>();
+        passHeader(messageHeader, resHeader, HEADER_APP_NAME);
+        passHeader(messageHeader, resHeader, HEADER_PARAMETER_NAME);
         return resHeader;
     }
 

@@ -15,17 +15,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import reactor.core.publisher.ConnectableFlux;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.io.UncheckedIOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -45,7 +41,7 @@ import java.util.logging.Level;
  * @author Abdelsalem Hedhili <abdelsalem.hedhili at rte-france.com>
  */
 @Component
-public class ConfigGlobalNotificationWebSocketHandler implements WebSocketHandler {
+public class ConfigGlobalNotificationWebSocketHandler extends AbstractNotificationWebSocketHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigGlobalNotificationWebSocketHandler.class);
     private static final String CATEGORY_BROKER_INPUT = ConfigGlobalNotificationWebSocketHandler.class.getName() + ".messages.input-broker";
@@ -54,31 +50,22 @@ public class ConfigGlobalNotificationWebSocketHandler implements WebSocketHandle
     public static final String HEADER_DURATION = "duration";
 
     private final ObjectMapper jacksonObjectMapper;
-    private final int heartbeatInterval;
-    private Flux<Message<String>> flux;
 
     public ConfigGlobalNotificationWebSocketHandler(ObjectMapper jacksonObjectMapper, @Value("${notification.websocket.heartbeat.interval:30}") int heartbeatInterval) {
+        super(heartbeatInterval);
         this.jacksonObjectMapper = jacksonObjectMapper;
-        this.heartbeatInterval = heartbeatInterval;
     }
 
     @Bean
     public Consumer<Flux<Message<String>>> consumeConfigMessage() {
-        return f -> {
-            ConnectableFlux<Message<String>> c = f.log(CATEGORY_BROKER_INPUT, Level.FINE).publish();
-            this.flux = c;
-            c.connect();
-            // Force connect 1 fake subscriber to consumme messages as they come.
-            // Otherwise, reactorcore buffers some messages (not until the connectable flux had
-            // at least one subscriber. Is there a better way ?
-            c.subscribe();
-        };
+        return consumeMessage(CATEGORY_BROKER_INPUT);
     }
 
-    /**
-     * map from the broker flux to the filtered flux for one websocket client, extracting only relevant fields.
-     */
-    private Flux<WebSocketMessage> notificationFlux(WebSocketSession webSocketSession) {
+    @NotNull
+    @Override
+    protected Flux<WebSocketMessage> notificationFlux(@NotNull final WebSocketSession webSocketSession) {
+        URI uri = webSocketSession.getHandshakeInfo().getUri();
+        LOGGER.debug("New websocket connection for {}", uri);
         return flux.map(m -> {
             try {
                 Map<String, Object> headers = new HashMap<>();
@@ -93,25 +80,5 @@ public class ConfigGlobalNotificationWebSocketHandler implements WebSocketHandle
                 throw new UncheckedIOException(e);
             }
         }).log(CATEGORY_WS_OUTPUT, Level.FINE).map(webSocketSession::textMessage);
-    }
-
-    /**
-     * A heartbeat flux sending websockets pings
-     */
-    private Flux<WebSocketMessage> heartbeatFlux(WebSocketSession webSocketSession) {
-        return Flux.interval(Duration.ofSeconds(heartbeatInterval)).map(n -> webSocketSession
-                .pingMessage(dbf -> dbf.wrap((webSocketSession.getId() + "-" + n).getBytes(StandardCharsets.UTF_8))));
-    }
-
-    @NotNull
-    @Override
-    public Mono<Void> handle(WebSocketSession webSocketSession) {
-        URI uri = webSocketSession.getHandshakeInfo().getUri();
-        LOGGER.debug("New websocket connection for {}", uri);
-        return webSocketSession
-                .send(
-                        notificationFlux(webSocketSession)
-                                .mergeWith(heartbeatFlux(webSocketSession)))
-                .and(webSocketSession.receive());
     }
 }
