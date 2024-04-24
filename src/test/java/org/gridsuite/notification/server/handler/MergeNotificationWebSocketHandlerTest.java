@@ -7,6 +7,8 @@
 package org.gridsuite.notification.server.handler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Before;
 import org.junit.Test;
@@ -30,7 +32,6 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -55,7 +56,7 @@ public class MergeNotificationWebSocketHandlerTest {
 
     @Before
     public void setup() {
-        objectMapper = new ObjectMapper();
+        objectMapper = new ObjectMapper().configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true);
         var dataBufferFactory = new DefaultDataBufferFactory();
 
         ws = Mockito.mock(WebSocketSession.class);
@@ -116,11 +117,11 @@ public class MergeNotificationWebSocketHandlerTest {
             String processValue = (String) headers.get("processUuid");
             String businessProcessValue = (String) headers.get("businessProcess");
             return (processUuid == null || processUuid.equals(processValue)) && (businessProcess == null || businessProcess.equals(businessProcessValue));
-        }).collect(Collectors.toList());
+        }).toList();
 
         List<Map<String, Object>> actual = messages.stream().map(t -> {
             try {
-                var deserializedHeaders = ((Map<String, Map<String, Object>>) objectMapper.readValue(t, Map.class)).get("headers");
+                var deserializedHeaders = objectMapper.readValue(t, new TypeReference<Map<String, Map<String, Object>>>() { }).get("headers");
                 return Map.of("processUuid", deserializedHeaders.get("processUuid"),
                         "businessProcess", deserializedHeaders.get("businessProcess"),
                         "date", deserializedHeaders.get("date"),
@@ -130,7 +131,7 @@ public class MergeNotificationWebSocketHandlerTest {
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
-        }).collect(Collectors.toList());
+        }).toList();
         assertEquals(expected, actual);
     }
 
@@ -192,7 +193,7 @@ public class MergeNotificationWebSocketHandlerTest {
         verify(ws, times(2)).send(argument2.capture());
         List<String> messages2 = new ArrayList<String>();
         Flux<WebSocketMessage> out2 = argument2.getValue();
-        Disposable d2 = out2.map(WebSocketMessage::getPayloadAsText).subscribe(messages1::add);
+        Disposable d2 = out2.map(WebSocketMessage::getPayloadAsText).subscribe(messages2::add);
         d2.dispose();
 
         sink.complete();

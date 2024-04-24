@@ -10,9 +10,10 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.gridsuite.notification.server.exception.NotificationServerRuntimeException;
 import org.junit.Before;
@@ -51,7 +52,7 @@ public class ConfigNotificationWebSocketHandlerTest {
 
     @Before
     public void setup() {
-        objectMapper = new ObjectMapper();
+        objectMapper = new ObjectMapper().configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true);
         var dataBufferFactory = new DefaultDataBufferFactory();
 
         ws = Mockito.mock(WebSocketSession.class);
@@ -146,16 +147,16 @@ public class ConfigNotificationWebSocketHandlerTest {
                     return filterUserId.equals(userId) && (filterAppName == null || COMMON_APP_NAME.equals(appName) || filterAppName.equals(appName));
                 })
                 .map(this::toResultHeader)
-                .collect(Collectors.toList());
+                .toList();
 
         List<Map<String, Object>> actual = messages.stream()
                 .map(t -> {
                     try {
-                        return toResultHeader(((Map<String, Map<String, Object>>) objectMapper.readValue(t, Map.class)).get("headers"));
+                        return toResultHeader((objectMapper.readValue(t, new TypeReference<Map<String, Map<String, Object>>>() { })).get("headers"));
                     } catch (JsonProcessingException e) {
                         throw new RuntimeException(e);
                     }
-                }).collect(Collectors.toList());
+                }).toList();
 
         assertEquals(expected, actual);
     }
