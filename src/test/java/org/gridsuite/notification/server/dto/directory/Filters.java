@@ -7,22 +7,13 @@
 package org.gridsuite.notification.server.dto.directory;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 /**
  * @author Abdelsalem Hedhili <abdelsalem.hedhili at rte-france.com>
  */
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class Filters {
-
-    private FiltersToAdd filtersToAdd;
-
-    private FiltersToRemove filtersToRemove;
+public record Filters(FiltersToAdd filtersToAdd, FiltersToRemove filtersToRemove) {
+    public Filters() {
+        this(null, null);
+    }
 }

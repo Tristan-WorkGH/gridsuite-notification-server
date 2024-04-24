@@ -7,24 +7,15 @@
 package org.gridsuite.notification.server.dto.directory;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.util.List;
 
 /**
  * @author Abdelsalem Hedhili <abdelsalem.hedhili at rte-france.com>
  */
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class FiltersToAdd {
-
-    private String updateType;
-
-    private List<String> elementUuids;
+public record FiltersToAdd(String updateType, List<String> elementUuids) {
+    public FiltersToAdd() {
+        this(null, null);
+    }
 }
