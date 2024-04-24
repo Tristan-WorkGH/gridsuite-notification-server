@@ -7,7 +7,6 @@
 package org.gridsuite.notification.server.handler;
 
 import java.io.UncheckedIOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -20,7 +19,7 @@ import java.util.logging.Level;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.util.Strings;
-import org.gridsuite.notification.server.exception.ConfigNotificationServerRuntimeException;
+import org.gridsuite.notification.server.exception.NotificationServerRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -129,19 +128,13 @@ public class ConfigNotificationWebSocketHandler implements WebSocketHandler {
         String filterAppName = parameters.getFirst(QUERY_APP_NAME);
 
         if (Strings.isBlank(filterUserId)) {
-            throw new ConfigNotificationServerRuntimeException(ConfigNotificationServerRuntimeException.NOT_ALLOWED);
+            throw new NotificationServerRuntimeException(NotificationServerRuntimeException.NOT_ALLOWED);
         } else {
-            try {
-                filterUserId = URLDecoder.decode(filterUserId, StandardCharsets.UTF_8.toString());
-            } catch (UnsupportedEncodingException e) {
-                throw new ConfigNotificationServerRuntimeException(e.getMessage());
-            }
+            filterUserId = URLDecoder.decode(filterUserId, StandardCharsets.UTF_8);
         }
         LOGGER.debug("New websocket connection for {}={} and {}={}", HEADER_USER_ID, filterUserId, QUERY_APP_NAME, filterAppName);
         return webSocketSession
-                .send(
-                        notificationFlux(webSocketSession, filterUserId, filterAppName)
-                                .mergeWith(heartbeatFlux(webSocketSession)))
+                .send(notificationFlux(webSocketSession, filterUserId, filterAppName).mergeWith(heartbeatFlux(webSocketSession)))
                 .and(webSocketSession.receive());
     }
 }

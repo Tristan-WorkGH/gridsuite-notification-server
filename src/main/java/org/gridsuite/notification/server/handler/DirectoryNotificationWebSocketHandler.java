@@ -18,7 +18,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.gridsuite.notification.server.dto.directory.FiltersToAdd;
 import org.gridsuite.notification.server.dto.directory.Filters;
 import org.gridsuite.notification.server.dto.directory.FiltersToRemove;
-import org.gridsuite.notification.server.exception.DirectoryNotificationServerRuntimeException;
+import org.gridsuite.notification.server.exception.NotificationServerRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -119,7 +119,7 @@ public class DirectoryNotificationWebSocketHandler implements WebSocketHandler {
                         "payload", m.getPayload(),
                         "headers", toResultHeader(m.getHeaders())));
             } catch (JsonProcessingException e) {
-                throw new DirectoryNotificationServerRuntimeException(e.toString());
+                throw new NotificationServerRuntimeException("Error while generating JSON", e);
             }
         }).log(CATEGORY_WS_OUTPUT, Level.FINE).map(webSocketSession::textMessage);
     }

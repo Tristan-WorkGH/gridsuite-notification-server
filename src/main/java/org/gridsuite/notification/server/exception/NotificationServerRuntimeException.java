@@ -6,15 +6,14 @@
  */
 package org.gridsuite.notification.server.exception;
 
+import lombok.experimental.StandardException;
+
 /**
  * @author Abdelsalem Hedhili <abdelsalem.hedhili at rte-france.com>
+ * @author Chamseddine Benhamed <chamseddine.benhamed at rte-france.com>
+ * @author Jon Harper <jon.harper at rte-france.com>
  */
-
-public class ConfigNotificationServerRuntimeException extends RuntimeException {
-
-    public static final String NOT_ALLOWED = "Not allowed : user id invalid";
-
-    public ConfigNotificationServerRuntimeException(String message) {
-        super(message);
-    }
+@StandardException
+public class NotificationServerRuntimeException extends RuntimeException {
+    public static final String NOT_ALLOWED = "Not allowed: invalid user ID";
 }

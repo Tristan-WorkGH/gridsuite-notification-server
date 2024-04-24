@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.gridsuite.notification.server.exception.ConfigNotificationServerRuntimeException;
+import org.gridsuite.notification.server.exception.NotificationServerRuntimeException;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -175,15 +175,15 @@ public class ConfigNotificationWebSocketHandlerTest {
     public void testWithoutUserIdFilter() {
         try {
             withFilters(null, null);
-        } catch (ConfigNotificationServerRuntimeException e) {
-            if (!e.getMessage().equals(ConfigNotificationServerRuntimeException.NOT_ALLOWED)) {
+        } catch (NotificationServerRuntimeException e) {
+            if (!e.getMessage().equals(NotificationServerRuntimeException.NOT_ALLOWED)) {
                 fail();
             }
         }
         try {
             withFilters(null, "appName");
-        } catch (ConfigNotificationServerRuntimeException e) {
-            if (!e.getMessage().equals(ConfigNotificationServerRuntimeException.NOT_ALLOWED)) {
+        } catch (NotificationServerRuntimeException e) {
+            if (!e.getMessage().equals(NotificationServerRuntimeException.NOT_ALLOWED)) {
                 fail();
             }
         }

@@ -13,7 +13,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.gridsuite.notification.server.dto.study.Filters;
 import org.gridsuite.notification.server.dto.study.FiltersToAdd;
 import org.gridsuite.notification.server.dto.study.FiltersToRemove;
-import org.gridsuite.notification.server.exception.StudyNotificationServerRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,7 +28,6 @@ import reactor.core.publisher.ConnectableFlux;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -213,12 +211,8 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
         MultiValueMap<String, String> parameters = UriComponentsBuilder.fromUri(uri).build(true).getQueryParams();
         String filterStudyUuid = parameters.getFirst(QUERY_STUDY_UUID);
         if (filterStudyUuid != null) {
-            try {
-                filterStudyUuid = URLDecoder.decode(filterStudyUuid, StandardCharsets.UTF_8.toString());
-                webSocketSession.getAttributes().put(FILTER_STUDY_UUID, filterStudyUuid);
-            } catch (UnsupportedEncodingException e) {
-                throw new StudyNotificationServerRuntimeException(e.getMessage());
-            }
+            filterStudyUuid = URLDecoder.decode(filterStudyUuid, StandardCharsets.UTF_8);
+            webSocketSession.getAttributes().put(FILTER_STUDY_UUID, filterStudyUuid);
         }
         String filterUpdateType = parameters.getFirst(QUERY_UPDATE_TYPE);
         if (filterUpdateType != null) {
