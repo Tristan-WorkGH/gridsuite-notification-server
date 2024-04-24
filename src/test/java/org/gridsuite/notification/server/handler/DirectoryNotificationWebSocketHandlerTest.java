@@ -11,10 +11,11 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import org.gridsuite.notification.server.dto.directory.FiltersToAdd;
@@ -51,12 +52,11 @@ public class DirectoryNotificationWebSocketHandlerTest {
     private WebSocketSession ws;
     private WebSocketSession ws2;
     private HandshakeInfo handshakeinfo;
-    private Flux<Message<String>> flux;
     private static final String STUDY_UUID = UUID.randomUUID().toString();
 
     @Before
     public void setup() {
-        objectMapper = new ObjectMapper();
+        objectMapper = new ObjectMapper().configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true);
         var dataBufferFactory = new DefaultDataBufferFactory();
 
         ws = Mockito.mock(WebSocketSession.class);
@@ -167,7 +167,7 @@ public class DirectoryNotificationWebSocketHandlerTest {
                         HEADER_ERROR, "error_message", HEADER_NOTIFICATION_TYPE, "UPDATE_DIRECTORY", HEADER_IS_ROOT_DIRECTORY, "false", HEADER_ELEMENT_NAME, "tutu"),
                 Map.of(HEADER_STUDY_UUID, STUDY_UUID, HEADER_USER_ID, connectedUserId))
                 .map(map -> new GenericMessage<>("", map))
-                .collect(Collectors.toList());
+                .toList();
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Flux<WebSocketMessage>> argument = ArgumentCaptor.forClass(Flux.class);
@@ -193,15 +193,15 @@ public class DirectoryNotificationWebSocketHandlerTest {
                 })
                 .map(GenericMessage::getHeaders)
                 .map(this::toResultHeader)
-                .collect(Collectors.toList());
+                .toList();
 
         List<Map<String, Object>> actual = messages.stream().map(t -> {
             try {
-                return toResultHeader(((Map<String, Map<String, Object>>) objectMapper.readValue(t, Map.class)).get("headers"));
+                return toResultHeader((objectMapper.readValue(t, new TypeReference<Map<String, Map<String, Object>>>() { })).get("headers"));
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
-        }).collect(Collectors.toList());
+        }).toList();
         assertEquals(expected, actual);
         assertNotEquals(0, actual.size());
     }

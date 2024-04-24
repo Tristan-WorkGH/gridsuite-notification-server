@@ -10,9 +10,10 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Before;
 import org.junit.Test;
@@ -51,7 +52,7 @@ public class ConfigGlobalNotificationWebSocketHandlerTest {
 
     @Before
     public void setup() {
-        objectMapper = new ObjectMapper();
+        objectMapper = new ObjectMapper().configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true);
         var dataBufferFactory = new DefaultDataBufferFactory();
 
         ws = Mockito.mock(WebSocketSession.class);
@@ -110,17 +111,18 @@ public class ConfigGlobalNotificationWebSocketHandlerTest {
         refMessages.stream().map(headers -> new GenericMessage<>("", headers)).forEach(sink::next);
         sink.complete();
 
-        List<Map<String, Object>> expected = refMessages.stream().map(this::toResultHeader)
-                .collect(Collectors.toList());
+        List<Map<String, Object>> expected = refMessages.stream()
+                .map(this::toResultHeader)
+                .toList();
 
         List<Map<String, Object>> actual = messages.stream()
                 .map(t -> {
                     try {
-                        return toResultHeader(((Map<String, Map<String, Object>>) objectMapper.readValue(t, Map.class)).get("headers"));
+                        return toResultHeader(objectMapper.readValue(t, new TypeReference<Map<String, Map<String, Object>>>() { }).get("headers"));
                     } catch (JsonProcessingException e) {
                         throw new RuntimeException(e);
                     }
-                }).collect(Collectors.toList());
+                }).toList();
 
         assertEquals(expected, actual);
     }

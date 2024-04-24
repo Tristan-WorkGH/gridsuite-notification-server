@@ -11,15 +11,17 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import lombok.extern.slf4j.Slf4j;
 import org.gridsuite.notification.server.dto.study.Filters;
 import org.gridsuite.notification.server.dto.study.FiltersToAdd;
 import org.gridsuite.notification.server.dto.study.FiltersToRemove;
@@ -50,6 +52,7 @@ import static org.mockito.Mockito.*;
 /**
  * @author Jon Harper <jon.harper at rte-france.com>
  */
+@Slf4j
 public class StudyNotificationWebSocketHandlerTest {
 
     private ObjectMapper objectMapper;
@@ -61,7 +64,7 @@ public class StudyNotificationWebSocketHandlerTest {
 
     @Before
     public void setup() {
-        objectMapper = new ObjectMapper();
+        objectMapper = new ObjectMapper().configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true);
         var dataBufferFactory = new DefaultDataBufferFactory();
 
         ws = Mockito.mock(WebSocketSession.class);
@@ -176,7 +179,7 @@ public class StudyNotificationWebSocketHandlerTest {
 
                 Map.of(HEADER_STUDY_UUID, "", HEADER_UPDATE_TYPE, "indexation_status_updated", HEADER_INDEXATION_STATUS, "INDEXED"))
                 .map(map -> new GenericMessage<>("", map))
-                .collect(Collectors.toList());
+                .toList();
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Flux<WebSocketMessage>> argument = ArgumentCaptor.forClass(Flux.class);
@@ -187,24 +190,25 @@ public class StudyNotificationWebSocketHandlerTest {
         sink.complete();
 
         List<Map<String, Object>> expected = refMessages.stream()
-                .filter(m -> {
-                    String studyUuid = (String) m.getHeaders().get(HEADER_STUDY_UUID);
-                    String updateType = (String) m.getHeaders().get(HEADER_UPDATE_TYPE);
-                    System.out.println((filterStudyUuid == null || filterStudyUuid.equals(studyUuid))
-                            && (filterUpdateType == null || filterUpdateType.equals(updateType)));
-                    return (filterStudyUuid == null || filterStudyUuid.equals(studyUuid)) && (filterUpdateType == null || filterUpdateType.equals(updateType));
-                })
-                .map(GenericMessage::getHeaders)
-                .map(this::toResultHeader)
-                .collect(Collectors.toList());
+            .filter(m -> {
+                String studyUuid = (String) m.getHeaders().get(HEADER_STUDY_UUID);
+                String updateType = (String) m.getHeaders().get(HEADER_UPDATE_TYPE);
+                final boolean result = (filterStudyUuid == null || filterStudyUuid.equals(studyUuid))
+                        && (filterUpdateType == null || filterUpdateType.equals(updateType));
+                log.info("result = {}", result);
+                return result;
+            })
+            .map(GenericMessage::getHeaders)
+            .map(this::toResultHeader)
+            .toList();
 
         List<Map<String, Object>> actual = messages.stream().map(t -> {
             try {
-                return toResultHeader(((Map<String, Map<String, Object>>) objectMapper.readValue(t, Map.class)).get("headers"));
+                return toResultHeader(objectMapper.readValue(t, new TypeReference<Map<String, Map<String, Object>>>() { }).get("headers"));
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
-        }).collect(Collectors.toList());
+        }).toList();
         assertEquals(expected, actual);
         assertNotEquals(0, actual.size());
     }
