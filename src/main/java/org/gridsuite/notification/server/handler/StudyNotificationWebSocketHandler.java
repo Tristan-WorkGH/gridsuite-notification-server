@@ -184,23 +184,23 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
     }
 
     private void handleReceivedFilters(WebSocketSession webSocketSession, Filters filters) {
-        if (filters.getFiltersToRemove() != null) {
-            FiltersToRemove filtersToRemove = filters.getFiltersToRemove();
-            if (Boolean.TRUE.equals(filtersToRemove.getRemoveUpdateType())) {
+        if (filters.filtersToRemove() != null) {
+            FiltersToRemove filtersToRemove = filters.filtersToRemove();
+            if (Boolean.TRUE.equals(filtersToRemove.removeUpdateType())) {
                 webSocketSession.getAttributes().remove(FILTER_UPDATE_TYPE);
             }
-            if (Boolean.TRUE.equals(filtersToRemove.getRemoveStudyUuid())) {
+            if (Boolean.TRUE.equals(filtersToRemove.removeStudyUuid())) {
                 webSocketSession.getAttributes().remove(FILTER_STUDY_UUID);
             }
         }
-        if (filters.getFiltersToAdd() != null) {
-            FiltersToAdd filtersToAdd = filters.getFiltersToAdd();
+        if (filters.filtersToAdd() != null) {
+            FiltersToAdd filtersToAdd = filters.filtersToAdd();
             //because null is not allowed in ConcurrentHashMap and will cause the websocket to close
-            if (filtersToAdd.getUpdateType() != null) {
-                webSocketSession.getAttributes().put(FILTER_UPDATE_TYPE, filtersToAdd.getUpdateType());
+            if (filtersToAdd.updateType() != null) {
+                webSocketSession.getAttributes().put(FILTER_UPDATE_TYPE, filtersToAdd.updateType());
             }
-            if (filtersToAdd.getStudyUuid() != null) {
-                webSocketSession.getAttributes().put(FILTER_STUDY_UUID, filtersToAdd.getStudyUuid());
+            if (filtersToAdd.studyUuid() != null) {
+                webSocketSession.getAttributes().put(FILTER_STUDY_UUID, filtersToAdd.studyUuid());
             }
         }
     }

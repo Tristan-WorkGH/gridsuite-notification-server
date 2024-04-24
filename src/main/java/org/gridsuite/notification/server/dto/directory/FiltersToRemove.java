@@ -7,24 +7,12 @@
 package org.gridsuite.notification.server.dto.directory;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.util.List;
 
 /**
  * @author Abdelsalem Hedhili <abdelsalem.hedhili at rte-france.com>
  */
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class FiltersToRemove {
-
-    private Boolean removeUpdateType;
-
-    private List<String> removeElementUuids;
+public record FiltersToRemove(Boolean removeUpdateType, List<String> removeElementUuids) {
 }
