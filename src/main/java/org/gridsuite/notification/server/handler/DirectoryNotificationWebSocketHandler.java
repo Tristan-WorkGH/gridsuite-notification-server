@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-package org.gridsuite.notification.server.directory;
+package org.gridsuite.notification.server.handler;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -14,9 +14,10 @@ import java.util.logging.Level;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.gridsuite.notification.server.directory.dto.FiltersToAdd;
-import org.gridsuite.notification.server.directory.dto.Filters;
-import org.gridsuite.notification.server.directory.dto.FiltersToRemove;
+import org.gridsuite.notification.server.dto.directory.FiltersToAdd;
+import org.gridsuite.notification.server.dto.directory.Filters;
+import org.gridsuite.notification.server.dto.directory.FiltersToRemove;
+import org.gridsuite.notification.server.exception.DirectoryNotificationServerRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;

@@ -6,11 +6,7 @@
  */
 package org.gridsuite.notification.server;
 
-import org.gridsuite.notification.server.config.ConfigGlobalNotificationWebSocketHandler;
-import org.gridsuite.notification.server.config.ConfigNotificationWebSocketHandler;
-import org.gridsuite.notification.server.directory.DirectoryNotificationWebSocketHandler;
-import org.gridsuite.notification.server.merge.MergeNotificationWebSocketHandler;
-import org.gridsuite.notification.server.study.StudyNotificationWebSocketHandler;
+import org.gridsuite.notification.server.handler.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.HandlerMapping;

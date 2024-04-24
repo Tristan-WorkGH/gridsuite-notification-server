@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-package org.gridsuite.notification.server.directory;
+package org.gridsuite.notification.server.handler;
 
 import java.time.Duration;
 import java.util.*;
@@ -17,9 +17,9 @@ import java.util.stream.Stream;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
-import org.gridsuite.notification.server.directory.dto.FiltersToAdd;
-import org.gridsuite.notification.server.directory.dto.Filters;
-import org.gridsuite.notification.server.directory.dto.FiltersToRemove;
+import org.gridsuite.notification.server.dto.directory.FiltersToAdd;
+import org.gridsuite.notification.server.dto.directory.Filters;
+import org.gridsuite.notification.server.dto.directory.FiltersToRemove;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -37,7 +37,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
-import static org.gridsuite.notification.server.directory.DirectoryNotificationWebSocketHandler.*;
+import static org.gridsuite.notification.server.handler.DirectoryNotificationWebSocketHandler.*;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;

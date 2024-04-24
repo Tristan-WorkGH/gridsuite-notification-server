@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-package org.gridsuite.notification.server.study;
+package org.gridsuite.notification.server.handler;
 
 import java.time.Duration;
 import java.util.*;
@@ -20,7 +20,9 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import org.gridsuite.notification.server.study.dto.*;
+import org.gridsuite.notification.server.dto.study.Filters;
+import org.gridsuite.notification.server.dto.study.FiltersToAdd;
+import org.gridsuite.notification.server.dto.study.FiltersToRemove;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -40,7 +42,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
-import static org.gridsuite.notification.server.study.StudyNotificationWebSocketHandler.*;
+import static org.gridsuite.notification.server.handler.StudyNotificationWebSocketHandler.*;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;

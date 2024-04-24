@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-package org.gridsuite.notification.server.config;
+package org.gridsuite.notification.server.handler;
 
 import java.io.UncheckedIOException;
 import java.io.UnsupportedEncodingException;
@@ -20,6 +20,7 @@ import java.util.logging.Level;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.util.Strings;
+import org.gridsuite.notification.server.exception.ConfigNotificationServerRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;

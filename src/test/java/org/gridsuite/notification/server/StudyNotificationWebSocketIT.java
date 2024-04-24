@@ -4,11 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-package org.gridsuite.notification.server.study;
+package org.gridsuite.notification.server;
 
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import org.gridsuite.notification.server.NotificationApplication;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +23,7 @@ import reactor.core.publisher.Mono;
 
 import java.net.URI;
 
-import static org.gridsuite.notification.server.study.StudyNotificationWebSocketHandler.*;
+import static org.gridsuite.notification.server.handler.StudyNotificationWebSocketHandler.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 

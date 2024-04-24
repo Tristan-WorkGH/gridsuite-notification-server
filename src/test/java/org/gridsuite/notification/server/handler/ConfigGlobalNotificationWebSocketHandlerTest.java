@@ -1,10 +1,10 @@
 /**
- * Copyright (c) 2020, RTE (http://www.rte-france.com)
+ * Copyright (c) 2024, RTE (http://www.rte-france.com)
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-package org.gridsuite.notification.server.config;
+package org.gridsuite.notification.server.handler;
 
 import java.time.Duration;
 import java.util.*;
@@ -33,16 +33,17 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
-import static org.gridsuite.notification.server.config.ConfigNotificationWebSocketHandler.*;
+import static org.gridsuite.notification.server.handler.ConfigGlobalNotificationWebSocketHandler.HEADER_DURATION;
+import static org.gridsuite.notification.server.handler.ConfigGlobalNotificationWebSocketHandler.HEADER_MESSAGE_TYPE;
+import static org.gridsuite.notification.server.handler.ConfigNotificationWebSocketHandler.*;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
  * @author Abdelsalem Hedhili <abdelsalem.hedhili at rte-france.com>
  */
-public class ConfigNotificationWebSocketHandlerTest {
+public class ConfigGlobalNotificationWebSocketHandlerTest {
 
     private ObjectMapper objectMapper;
     private WebSocketSession ws;
@@ -73,61 +74,32 @@ public class ConfigNotificationWebSocketHandlerTest {
 
     }
 
-    private void withFilters(String filterUserId, String filterAppName) {
-        var notificationWebSocketHandler = new ConfigNotificationWebSocketHandler(objectMapper, Integer.MAX_VALUE);
+    @Test
+    public void test() {
+        var notificationWebSocketHandler = new ConfigGlobalNotificationWebSocketHandler(objectMapper, Integer.MAX_VALUE);
 
-        UriComponentsBuilder uriComponentBuilder = UriComponentsBuilder.fromUriString("http://localhost:1234/notify");
+        UriComponentsBuilder uriComponentBuilder = UriComponentsBuilder.fromUriString("http://localhost:1234/global");
 
-        if (filterAppName != null) {
-            uriComponentBuilder.queryParam(QUERY_APP_NAME, filterAppName);
-        }
         when(handshakeinfo.getUri()).thenReturn(uriComponentBuilder.build().toUri());
 
         HttpHeaders httpHeaders = new HttpHeaders();
-        if (filterUserId != null) {
-            httpHeaders.add(HEADER_USER_ID, filterUserId);
-            when(handshakeinfo.getHeaders()).thenReturn(httpHeaders);
-        } else {
-            when(handshakeinfo.getHeaders()).thenReturn(httpHeaders);
-        }
+
+        when(handshakeinfo.getHeaders()).thenReturn(httpHeaders);
 
         var atomicRef = new AtomicReference<FluxSink<Message<String>>>();
         var flux = Flux.create(atomicRef::set);
-        notificationWebSocketHandler.consumeConfigNotification().accept(flux);
+        notificationWebSocketHandler.consumeConfigMessage().accept(flux);
         var sink = atomicRef.get();
 
         notificationWebSocketHandler.handle(ws);
 
         List<Map<String, Object>> refMessages = Arrays.asList(
 
-                Map.of(HEADER_USER_ID, "userId"),
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, ""),
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, "app1"),
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, "app2"),
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, COMMON_APP_NAME),
-
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, "", HEADER_PARAMETER_NAME, ""),
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, "app1", HEADER_PARAMETER_NAME, ""),
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, "app2", HEADER_PARAMETER_NAME, ""),
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, COMMON_APP_NAME, HEADER_PARAMETER_NAME, ""),
-
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, "", HEADER_PARAMETER_NAME, "param"),
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, "app1", HEADER_PARAMETER_NAME, "param"),
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, "app2", HEADER_PARAMETER_NAME, "param"),
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, COMMON_APP_NAME, HEADER_PARAMETER_NAME, "param"),
-
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, "appName", HEADER_PARAMETER_NAME, "param1"),
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, "appName", HEADER_PARAMETER_NAME, "param2"),
-                Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, COMMON_APP_NAME, HEADER_PARAMETER_NAME, "param3"),
-
-                Map.of(HEADER_USER_ID, "userId2", HEADER_APP_NAME, "", HEADER_PARAMETER_NAME, "param"),
-                Map.of(HEADER_USER_ID, "userId2", HEADER_APP_NAME, "app1", HEADER_PARAMETER_NAME, "param"),
-                Map.of(HEADER_USER_ID, "userId2", HEADER_APP_NAME, "app2", HEADER_PARAMETER_NAME, "param"),
-                Map.of(HEADER_USER_ID, "userId2", HEADER_APP_NAME, COMMON_APP_NAME, HEADER_PARAMETER_NAME, "param"),
-
-                Map.of(HEADER_USER_ID, "foo bar/bar", HEADER_APP_NAME, "appName"),      // test encoding user name
-
-                Map.of("foo bar/bar", "foo bar/bar", HEADER_APP_NAME, "appName")    // bad header for user id (message discarded)
+                Map.of(HEADER_MESSAGE_TYPE, "msgType"),
+                Map.of(HEADER_MESSAGE_TYPE, "msgType", HEADER_DURATION, "100"),
+                Map.of(HEADER_MESSAGE_TYPE, "foo bar/bar", HEADER_DURATION, "200"),     // test encoding message type
+                Map.of(HEADER_DURATION, "200"),     //test without message type
+                Map.of("random", "thing")
         );
 
         @SuppressWarnings("unchecked")
@@ -138,13 +110,7 @@ public class ConfigNotificationWebSocketHandlerTest {
         refMessages.stream().map(headers -> new GenericMessage<>("", headers)).forEach(sink::next);
         sink.complete();
 
-        List<Map<String, Object>> expected = refMessages.stream()
-                .filter(headers -> {
-                    String userId = (String) headers.get(HEADER_USER_ID);
-                    String appName = (String) headers.get(HEADER_APP_NAME);
-                    return filterUserId.equals(userId) && (filterAppName == null || COMMON_APP_NAME.equals(appName) || filterAppName.equals(appName));
-                })
-                .map(this::toResultHeader)
+        List<Map<String, Object>> expected = refMessages.stream().map(this::toResultHeader)
                 .collect(Collectors.toList());
 
         List<Map<String, Object>> actual = messages.stream()
@@ -161,53 +127,20 @@ public class ConfigNotificationWebSocketHandlerTest {
 
     private Map<String, Object> toResultHeader(Map<String, Object> messageHeader) {
         var resHeader = new HashMap<String, Object>();
-        if (messageHeader.get(HEADER_APP_NAME) != null) {
-            resHeader.put(HEADER_APP_NAME, messageHeader.get(HEADER_APP_NAME));
+        if (messageHeader.get(HEADER_MESSAGE_TYPE) != null) {
+            resHeader.put(HEADER_MESSAGE_TYPE, messageHeader.get(HEADER_MESSAGE_TYPE));
         }
-        if (messageHeader.get(HEADER_PARAMETER_NAME) != null) {
-            resHeader.put(HEADER_PARAMETER_NAME, messageHeader.get(HEADER_PARAMETER_NAME));
+        if (messageHeader.get(HEADER_DURATION) != null) {
+            resHeader.put(HEADER_DURATION, messageHeader.get(HEADER_DURATION));
         }
         return resHeader;
     }
 
     @Test
-    public void testWithoutUserIdFilter() {
-        try {
-            withFilters(null, null);
-        } catch (ConfigNotificationServerRuntimeException e) {
-            if (!e.getMessage().equals(ConfigNotificationServerRuntimeException.NOT_ALLOWED)) {
-                fail();
-            }
-        }
-        try {
-            withFilters(null, "appName");
-        } catch (ConfigNotificationServerRuntimeException e) {
-            if (!e.getMessage().equals(ConfigNotificationServerRuntimeException.NOT_ALLOWED)) {
-                fail();
-            }
-        }
-    }
-
-    @Test
-    public void testUserIdFilter() {
-        withFilters("userId", null);
-    }
-
-    @Test
-    public void testAppNameFilter() {
-        withFilters("userId", "appName");
-    }
-
-    @Test
-    public void testEncodingCharacters() {
-        withFilters("foo bar/bar", "appName");
-    }
-
-    @Test
     public void testHeartbeat() {
-        var notificationWebSocketHandler = new ConfigNotificationWebSocketHandler(null, 1);
+        var notificationWebSocketHandler = new ConfigGlobalNotificationWebSocketHandler(null, 1);
 
-        UriComponentsBuilder uriComponentBuilder = UriComponentsBuilder.fromUriString("http://localhost:1234/notify");
+        UriComponentsBuilder uriComponentBuilder = UriComponentsBuilder.fromUriString("http://localhost:1234/global");
 
         when(handshakeinfo.getUri()).thenReturn(uriComponentBuilder.build().toUri());
         ArrayList<String> values = new ArrayList<>();
@@ -217,7 +150,7 @@ public class ConfigNotificationWebSocketHandlerTest {
         when(handshakeinfo.getHeaders()).thenReturn(httpHeaders);
 
         var flux = Flux.<Message<String>>empty();
-        notificationWebSocketHandler.consumeConfigNotification().accept(flux);
+        notificationWebSocketHandler.consumeConfigMessage().accept(flux);
         notificationWebSocketHandler.handle(ws);
 
         @SuppressWarnings("unchecked")
@@ -228,9 +161,9 @@ public class ConfigNotificationWebSocketHandlerTest {
 
     @Test
     public void testDiscard() {
-        var notificationWebSocketHandler = new ConfigNotificationWebSocketHandler(objectMapper, Integer.MAX_VALUE);
+        var notificationWebSocketHandler = new ConfigGlobalNotificationWebSocketHandler(objectMapper, Integer.MAX_VALUE);
 
-        UriComponentsBuilder uriComponentBuilder = UriComponentsBuilder.fromUriString("http://localhost:1234/notify");
+        UriComponentsBuilder uriComponentBuilder = UriComponentsBuilder.fromUriString("http://localhost:1234/global");
 
         when(handshakeinfo.getUri()).thenReturn(uriComponentBuilder.build().toUri());
         HttpHeaders httpHeaders = new HttpHeaders();
@@ -239,7 +172,7 @@ public class ConfigNotificationWebSocketHandlerTest {
 
         var atomicRef = new AtomicReference<FluxSink<Message<String>>>();
         var flux = Flux.create(atomicRef::set);
-        notificationWebSocketHandler.consumeConfigNotification().accept(flux);
+        notificationWebSocketHandler.consumeConfigMessage().accept(flux);
         var sink = atomicRef.get();
         Map<String, Object> headers = Map.of(HEADER_USER_ID, "userId", HEADER_APP_NAME, "appName");
 

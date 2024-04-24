@@ -1,14 +1,13 @@
 /**
- * Copyright (c) 2020, RTE (http://www.rte-france.com)
+ * Copyright (c) 2021, RTE (http://www.rte-france.com)
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-package org.gridsuite.notification.server.merge;
+package org.gridsuite.notification.server;
 
 import java.net.URI;
 
-import org.gridsuite.notification.server.NotificationApplication;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,17 +19,16 @@ import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.reactive.socket.client.StandardWebSocketClient;
 import org.springframework.web.reactive.socket.client.WebSocketClient;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertNotNull;
 
 /**
- * @author Chamseddine Benhamed <chamseddine.benhamed at rte-france.com>
  * @author Jon Harper <jon.harper at rte-france.com>
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ContextConfiguration(classes = { NotificationApplication.class })
 @DirtiesContext
-public class MergeNotificationWebSocketIT {
+public class DirectoryNotificationWebSocketIT {
 
     @LocalServerPort
     private String port;
@@ -39,7 +37,7 @@ public class MergeNotificationWebSocketIT {
     public void echo() {
         WebSocketClient client = new StandardWebSocketClient();
         assertNotNull(client);
-        client.execute(getUrl("/merge/notify"), WebSocketSession::close).block();
+        client.execute(getUrl("/directory/notify"), WebSocketSession::close).block();
     }
 
     protected URI getUrl(String path) {

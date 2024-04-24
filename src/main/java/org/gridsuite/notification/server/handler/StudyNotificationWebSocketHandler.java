@@ -4,15 +4,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-package org.gridsuite.notification.server.study;
+package org.gridsuite.notification.server.handler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import org.gridsuite.notification.server.study.dto.Filters;
-import org.gridsuite.notification.server.study.dto.FiltersToAdd;
-import org.gridsuite.notification.server.study.dto.FiltersToRemove;
+import org.gridsuite.notification.server.dto.study.Filters;
+import org.gridsuite.notification.server.dto.study.FiltersToAdd;
+import org.gridsuite.notification.server.dto.study.FiltersToRemove;
+import org.gridsuite.notification.server.exception.StudyNotificationServerRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
