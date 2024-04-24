@@ -38,12 +38,15 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * A WebSocketHandler that sends messages from a broker to websockets opened by clients, interleaving with pings to keep connections open.
- *
- * Spring Cloud Stream gets the consumeConfigNotification bean and calls it with the
- * flux from the broker. We call publish and connect to subscribe immediately to the flux
- * and multicast the messages to all connected websockets and to discard the messages when
- * no websockets are connected.
+ * <p>
+ * A WebSocketHandler that sends messages from a broker to websockets opened by clients,
+ * interleaving with pings to keep connections open.
+ * </p><p>
+ * Spring Cloud Stream gets the {@link #consumeConfigNotification} bean and calls it with the
+ * flux from the broker. We call {@link Flux#publish() publish} and {@link ConnectableFlux#connect() connect}
+ * to subscribe immediately to the flux and multicast the messages to all connected websockets
+ * and to discard the messages when no websockets are connected.
+ * </p>
  *
  * @author Abdelsalem Hedhili <abdelsalem.hedhili at rte-france.com>
  */
@@ -59,16 +62,14 @@ public class ConfigNotificationWebSocketHandler implements WebSocketHandler {
     public static final String HEADER_PARAMETER_NAME = "parameterName";
     public static final String COMMON_APP_NAME = "common";
 
-    private ObjectMapper jacksonObjectMapper;
-
-    private int heartbeatInterval;
+    private final ObjectMapper jacksonObjectMapper;
+    private final int heartbeatInterval;
+    private Flux<Message<String>> flux;
 
     public ConfigNotificationWebSocketHandler(ObjectMapper jacksonObjectMapper, @Value("${notification.websocket.heartbeat.interval:30}") int heartbeatInterval) {
         this.jacksonObjectMapper = jacksonObjectMapper;
         this.heartbeatInterval = heartbeatInterval;
     }
-
-    Flux<Message<String>> flux;
 
     @Bean
     public Consumer<Flux<Message<String>>> consumeConfigNotification() {

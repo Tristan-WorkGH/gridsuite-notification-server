@@ -30,6 +30,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -40,12 +41,15 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 
 /**
- * A WebSocketHandler that sends messages from a broker to websockets opened by clients, interleaving with pings to keep connections open.
  * <p>
- * Spring Cloud Stream gets the consumeStudyNotification bean and calls it with the
- * flux from the broker. We call publish and connect to subscribe immediately to the flux
- * and multicast the messages to all connected websockets and to discard the messages when
- * no websockets are connected.
+ * A WebSocketHandler that sends messages from a broker to websockets opened by clients,
+ * interleaving with pings to keep connections open.
+ * </p><p>
+ * Spring Cloud Stream gets the {@link #consumeStudyNotification} bean and calls it with the
+ * flux from the broker. We call {@link Flux#publish() publish} and {@link ConnectableFlux#connect() connect}
+ * to subscribe immediately to the flux and multicast the messages to all connected websockets
+ * and to discard the messages when no websockets are connected.
+ * </p>
  *
  * @author Jon Harper <jon.harper at rte-france.com>
  */
@@ -79,10 +83,9 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
     public static final String CONNECTIONS_METER_NAME = "app.connections";
 
     private final ObjectMapper jacksonObjectMapper;
-
     private final int heartbeatInterval;
-
     private final Map<String, Integer> userConnections = new ConcurrentHashMap<>();
+    private Flux<Message<String>> flux;
 
     public StudyNotificationWebSocketHandler(ObjectMapper jacksonObjectMapper, MeterRegistry meterRegistry, @Value("${notification.websocket.heartbeat.interval:30}") int heartbeatInterval) {
         this.jacksonObjectMapper = jacksonObjectMapper;
@@ -94,8 +97,6 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
         Gauge.builder(USERS_METER_NAME, userConnections::size).register(meterRegistry);
         Gauge.builder(CONNECTIONS_METER_NAME, () -> userConnections.values().stream().mapToInt(Integer::intValue).sum()).register(meterRegistry);
     }
-
-    Flux<Message<String>> flux;
 
     @Bean
     public Consumer<Flux<Message<String>>> consumeStudyNotification() {
@@ -132,7 +133,7 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
     }
 
     private static Map<String, Object> toResultHeader(Map<String, Object> messageHeader) {
-        var resHeader = new HashMap<String, Object>();
+        Map<String, Object> resHeader = new HashMap<>();
         resHeader.put(HEADER_TIMESTAMP, messageHeader.get(HEADER_TIMESTAMP));
         resHeader.put(HEADER_UPDATE_TYPE, messageHeader.get(HEADER_UPDATE_TYPE));
 
@@ -153,7 +154,7 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
         return resHeader;
     }
 
-    private static void passHeader(Map<String, Object> messageHeader, HashMap<String, Object> resHeader, String headerName) {
+    private static void passHeader(Map<String, Object> messageHeader, Map<String, Object> resHeader, String headerName) {
         if (messageHeader.get(headerName) != null) {
             resHeader.put(headerName, messageHeader.get(headerName));
         }
@@ -208,7 +209,7 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
 
     @Override
     public Mono<Void> handle(WebSocketSession webSocketSession) {
-        var uri = webSocketSession.getHandshakeInfo().getUri();
+        URI uri = webSocketSession.getHandshakeInfo().getUri();
         MultiValueMap<String, String> parameters = UriComponentsBuilder.fromUri(uri).build(true).getQueryParams();
         String filterStudyUuid = parameters.getFirst(QUERY_STUDY_UUID);
         if (filterStudyUuid != null) {
@@ -232,14 +233,14 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
     }
 
     private void updateConnectionMetrics(WebSocketSession webSocketSession) {
-        var userId = webSocketSession.getHandshakeInfo().getHeaders().getFirst(HEADER_USER_ID);
+        String userId = webSocketSession.getHandshakeInfo().getHeaders().getFirst(HEADER_USER_ID);
         LOGGER.info("New websocket connection id={} for user={} studyUuid={}, updateType={}", webSocketSession.getId(), userId,
                 webSocketSession.getAttributes().get(FILTER_STUDY_UUID), webSocketSession.getAttributes().get(FILTER_UPDATE_TYPE));
         userConnections.compute(userId, (k, v) -> (v == null) ? 1 : v + 1);
     }
 
     private void updateDisconnectionMetrics(WebSocketSession webSocketSession) {
-        var userId = webSocketSession.getHandshakeInfo().getHeaders().getFirst(HEADER_USER_ID);
+        String userId = webSocketSession.getHandshakeInfo().getHeaders().getFirst(HEADER_USER_ID);
         LOGGER.info("Websocket disconnection id={} for user={}", webSocketSession.getId(), userId);
         userConnections.computeIfPresent(userId, (k, v) -> v > 1 ? v - 1 : null);
     }

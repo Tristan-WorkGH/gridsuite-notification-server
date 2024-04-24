@@ -6,6 +6,7 @@
  */
 package org.gridsuite.notification.server.handler;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
@@ -34,12 +35,15 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * A WebSocketHandler that sends messages from a broker to websockets opened by clients, interleaving with pings to keep connections open.
  * <p>
- * Spring Cloud Stream gets the consumeDirectoryNotification bean and calls it with the
- * flux from the broker. We call publish and connect to subscribe immediately to the flux
- * and multicast the messages to all connected websockets and to discard the messages when
- * no websockets are connected.
+ * A WebSocketHandler that sends messages from a broker to websockets opened by clients,
+ * interleaving with pings to keep connections open.
+ * </p><p>
+ * Spring Cloud Stream gets the {@link #consumeDirectoryNotification} bean and calls it with the
+ * flux from the broker. We call {@link Flux#publish() publish} and {@link ConnectableFlux#connect() connect}
+ * to subscribe immediately to the flux and multicast the messages to all connected websockets
+ * and to discard the messages when no websockets are connected.
+ * </p>
  *
  * @author Chamseddine Benhamed <chamseddine.benhamed at rte-france.com>
  * @author Jon Harper <jon.harper at rte-france.com>
@@ -65,16 +69,14 @@ public class DirectoryNotificationWebSocketHandler implements WebSocketHandler {
     static final String HEADER_NOTIFICATION_TYPE = "notificationType";
     static final String HEADER_STUDY_UUID = "studyUuid";
 
-    private ObjectMapper jacksonObjectMapper;
-
-    private int heartbeatInterval;
+    private final ObjectMapper jacksonObjectMapper;
+    private final int heartbeatInterval;
+    private Flux<Message<String>> flux;
 
     public DirectoryNotificationWebSocketHandler(ObjectMapper jacksonObjectMapper, @Value("${notification.websocket.heartbeat.interval:30}") int heartbeatInterval) {
         this.jacksonObjectMapper = jacksonObjectMapper;
         this.heartbeatInterval = heartbeatInterval;
     }
-
-    Flux<Message<String>> flux;
 
     @Bean
     public Consumer<Flux<Message<String>>> consumeDirectoryNotification() {
@@ -92,8 +94,7 @@ public class DirectoryNotificationWebSocketHandler implements WebSocketHandler {
     /**
      * map from the broker flux to the filtered flux for one websocket client, extracting only relevant fields.
      */
-    private Flux<WebSocketMessage> notificationFlux(WebSocketSession webSocketSession,
-                                                    String userId) {
+    private Flux<WebSocketMessage> notificationFlux(WebSocketSession webSocketSession, String userId) {
         return flux.transform(f -> {
             Flux<Message<String>> res = f;
             if (userId != null) {
@@ -101,7 +102,7 @@ public class DirectoryNotificationWebSocketHandler implements WebSocketHandler {
                     if (m.getHeaders().get(HEADER_ERROR) != null && !userId.equals(m.getHeaders().get(HEADER_USER_ID))) {
                         return false;
                     }
-                    var headerIsPublicDirectory = m.getHeaders().get(HEADER_IS_PUBLIC_DIRECTORY, Boolean.class);
+                    Boolean headerIsPublicDirectory = m.getHeaders().get(HEADER_IS_PUBLIC_DIRECTORY, Boolean.class);
                     return userId.equals(m.getHeaders().get(HEADER_USER_ID)) || headerIsPublicDirectory != null && headerIsPublicDirectory;
                 });
             }
@@ -124,7 +125,7 @@ public class DirectoryNotificationWebSocketHandler implements WebSocketHandler {
     }
 
     private static Map<String, Object> toResultHeader(Map<String, Object> messageHeader) {
-        var resHeader = new HashMap<String, Object>();
+        Map<String, Object> resHeader = new HashMap<>();
         resHeader.put(HEADER_TIMESTAMP, messageHeader.get(HEADER_TIMESTAMP));
         resHeader.put(HEADER_UPDATE_TYPE, messageHeader.get(HEADER_UPDATE_TYPE));
 
@@ -202,7 +203,7 @@ public class DirectoryNotificationWebSocketHandler implements WebSocketHandler {
 
     @Override
     public Mono<Void> handle(WebSocketSession webSocketSession) {
-        var uri = webSocketSession.getHandshakeInfo().getUri();
+        URI uri = webSocketSession.getHandshakeInfo().getUri();
         String userId = webSocketSession.getHandshakeInfo().getHeaders().getFirst(HEADER_USER_ID);
         MultiValueMap<String, String> parameters = UriComponentsBuilder.fromUri(uri).build(true).getQueryParams();
         String filterUpdateType = parameters.getFirst(QUERY_UPDATE_TYPE);
