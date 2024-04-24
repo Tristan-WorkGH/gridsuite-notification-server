@@ -59,24 +59,24 @@ public class StudyNotificationWebSocketHandler implements WebSocketHandler {
     static final String FILTER_STUDY_UUID = QUERY_STUDY_UUID;
     static final String QUERY_UPDATE_TYPE = "updateType";
     static final String FILTER_UPDATE_TYPE = QUERY_UPDATE_TYPE;
-    static final String HEADER_USER_ID = "userId";
-    static final String HEADER_STUDY_UUID = "studyUuid";
-    static final String HEADER_UPDATE_TYPE = "updateType";
-    static final String HEADER_TIMESTAMP = "timestamp";
-    static final String HEADER_ERROR = "error";
-    static final String HEADER_SUBSTATIONS_IDS = "substationsIds";
-    static final String HEADER_NODE = "node";
-    static final String HEADER_NODES = "nodes";
-    static final String HEADER_PARENT_NODE = "parentNode";
-    static final String HEADER_NEW_NODE = "newNode";
-    static final String HEADER_MOVED_NODE = "movedNode";
-    static final String HEADER_REMOVE_CHILDREN = "removeChildren";
-    static final String HEADER_INSERT_MODE = "insertMode";
-    static final String HEADER_REFERENCE_NODE_UUID = "referenceNodeUuid";
-    static final String HEADER_INDEXATION_STATUS = "indexation_status";
+    public static final String HEADER_USER_ID = "userId";
+    public static final String HEADER_STUDY_UUID = "studyUuid";
+    public static final String HEADER_UPDATE_TYPE = "updateType";
+    public static final String HEADER_TIMESTAMP = "timestamp";
+    public static final String HEADER_ERROR = "error";
+    public static final String HEADER_SUBSTATIONS_IDS = "substationsIds";
+    public static final String HEADER_NODE = "node";
+    public static final String HEADER_NODES = "nodes";
+    public static final String HEADER_PARENT_NODE = "parentNode";
+    public static final String HEADER_NEW_NODE = "newNode";
+    public static final String HEADER_MOVED_NODE = "movedNode";
+    public static final String HEADER_REMOVE_CHILDREN = "removeChildren";
+    public static final String HEADER_INSERT_MODE = "insertMode";
+    public static final String HEADER_REFERENCE_NODE_UUID = "referenceNodeUuid";
+    public static final String HEADER_INDEXATION_STATUS = "indexation_status";
 
-    static final String USERS_METER_NAME = "app.users";
-    static final String CONNECTIONS_METER_NAME = "app.connections";
+    public static final String USERS_METER_NAME = "app.users";
+    public static final String CONNECTIONS_METER_NAME = "app.connections";
 
     private final ObjectMapper jacksonObjectMapper;
 
