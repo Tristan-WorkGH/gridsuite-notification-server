@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-package org.gridsuite.study.notification.server;
+package org.gridsuite.notification.server.study;
 
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -23,7 +23,7 @@ import reactor.core.publisher.Mono;
 
 import java.net.URI;
 
-import static org.gridsuite.study.notification.server.NotificationWebSocketHandler.*;
+import static org.gridsuite.notification.server.study.NotificationWebSocketHandler.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
