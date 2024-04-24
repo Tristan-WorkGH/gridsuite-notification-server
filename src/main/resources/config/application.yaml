@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: notification-server
+
+  cloud:
+    function:
+      definition: consumeConfigNotification;consumeConfigMessage;consumeDirectoryNotification;consumeMergeNotification;consumeStudyNotification
+    stream:
+      bindings:
+        consumeConfigNotification-in-0:
+          destination: ${powsybl-ws.rabbitmq.destination.prefix:}config.update
+        consumeConfigMessage-in-0:
+          destination: ${powsybl-ws.rabbitmq.destination.prefix:}config.message
+        consumeDirectoryNotification-in-0:
+          destination: ${powsybl-ws.rabbitmq.destination.prefix:}directory.update
+        consumeMergeNotification-in-0:
+          destination: ${powsybl-ws.rabbitmq.destination.prefix:}merge
+        consumeStudyNotification-in-0:
+          destination: ${powsybl-ws.rabbitmq.destination.prefix:}study.update
+
+logging:
+  level:
+    org.gridsuite.notification.server.config.org.gridsuite.notification.server.config.ConfigNotificationWebSocketHandler: INFO
+    org.gridsuite.notification.server.config.org.gridsuite.notification.server.config.ConfigGlobalNotificationWebSocketHandler: INFO

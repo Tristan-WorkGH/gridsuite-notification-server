@@ -1,0 +1,12 @@
+server:
+  port: 5100
+
+spring:
+  rabbitmq:
+    addresses: localhost
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus, health, info
