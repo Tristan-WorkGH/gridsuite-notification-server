@@ -8,6 +8,7 @@ package org.gridsuite.notification.server.handler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.gridsuite.notification.server.exception.NotificationServerRuntimeException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +21,6 @@ import org.springframework.web.reactive.socket.WebSocketSession;
 import reactor.core.publisher.ConnectableFlux;
 import reactor.core.publisher.Flux;
 
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -66,7 +66,7 @@ public class ConfigGlobalNotificationWebSocketHandler extends AbstractNotificati
     protected Flux<WebSocketMessage> notificationFlux(@NotNull final WebSocketSession webSocketSession) {
         URI uri = webSocketSession.getHandshakeInfo().getUri();
         LOGGER.debug("New websocket connection for {}", uri);
-        return flux.map(m -> {
+        return flux.<String>handle((m, sink) -> {
             try {
                 Map<String, Object> headers = new HashMap<>();
                 if (m.getHeaders().get(HEADER_MESSAGE_TYPE) != null) {
@@ -75,9 +75,9 @@ public class ConfigGlobalNotificationWebSocketHandler extends AbstractNotificati
                 if (m.getHeaders().get(HEADER_DURATION) != null) {
                     headers.put(HEADER_DURATION, m.getHeaders().get(HEADER_DURATION));
                 }
-                return jacksonObjectMapper.writeValueAsString(Map.of("payload", m.getPayload(), "headers", headers));
+                sink.next(jacksonObjectMapper.writeValueAsString(Map.of("payload", m.getPayload(), "headers", headers)));
             } catch (JsonProcessingException e) {
-                throw new UncheckedIOException(e);
+                sink.error(new NotificationServerRuntimeException("Error while generating JSON", e));
             }
         }).log(CATEGORY_WS_OUTPUT, Level.FINE).map(webSocketSession::textMessage);
     }

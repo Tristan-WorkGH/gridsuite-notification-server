@@ -25,7 +25,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.ConnectableFlux;
 import reactor.core.publisher.Flux;
 
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -98,7 +97,7 @@ public class ConfigNotificationWebSocketHandler extends AbstractNotificationWebS
                             filterAppName.equals(m.getHeaders().get(HEADER_APP_NAME)) ||
                             COMMON_APP_NAME.equals(m.getHeaders().get(HEADER_APP_NAME)));
             return res;
-        }).map(m -> {
+        }).<String>handle((m, sink) -> {
             try {
                 Map<String, Object> headers = new HashMap<>();
                 if (m.getHeaders().get(HEADER_APP_NAME) != null) {
@@ -107,9 +106,9 @@ public class ConfigNotificationWebSocketHandler extends AbstractNotificationWebS
                 if (m.getHeaders().get(HEADER_PARAMETER_NAME) != null) {
                     headers.put(HEADER_PARAMETER_NAME, m.getHeaders().get(HEADER_PARAMETER_NAME));
                 }
-                return jacksonObjectMapper.writeValueAsString(Map.of("payload", m.getPayload(), "headers", headers));
+                sink.next(jacksonObjectMapper.writeValueAsString(Map.of("payload", m.getPayload(), "headers", headers)));
             } catch (JsonProcessingException e) {
-                throw new UncheckedIOException(e);
+                sink.error(new NotificationServerRuntimeException("Error while generating JSON", e));
             }
         }).log(CATEGORY_WS_OUTPUT, Level.FINE).map(webSocketSession::textMessage);
     }

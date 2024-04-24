@@ -10,6 +10,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.gridsuite.notification.server.exception.NotificationServerRuntimeException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,13 +107,13 @@ public class StudyNotificationWebSocketHandler extends AbstractNotificationWebSo
         }).filter(message -> {
             String filterUpdateType = (String) webSocketSession.getAttributes().get(FILTER_UPDATE_TYPE);
             return filterUpdateType == null || filterUpdateType.equals(message.getHeaders().get(HEADER_UPDATE_TYPE));
-        }).map(m -> {
+        }).<String>handle((m, sink) -> {
             try {
-                return jacksonObjectMapper.writeValueAsString(Map.of(
+                sink.next(jacksonObjectMapper.writeValueAsString(Map.of(
                         "payload", m.getPayload(),
-                        "headers", toResultHeader(m.getHeaders())));
+                        "headers", toResultHeader(m.getHeaders()))));
             } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
+                sink.error(new NotificationServerRuntimeException("Error while generating JSON", e));
             }
         }).log(CATEGORY_WS_OUTPUT, Level.FINE).map(webSocketSession::textMessage);
     }

@@ -8,6 +8,7 @@ package org.gridsuite.notification.server.handler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.gridsuite.notification.server.exception.NotificationServerRuntimeException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +23,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.ConnectableFlux;
 import reactor.core.publisher.Flux;
 
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.Map;
 import java.util.Set;
@@ -92,7 +92,7 @@ public class MergeNotificationWebSocketHandler extends AbstractNotificationWebSo
                         businessProcess.equals(m.getHeaders().get(HEADER_BUSINESS_PROCESS)));
             }
             return res;
-        }).map(m -> {
+        }).<String>handle((m, sink) -> {
             try {
                 Map<String, Object> headers = m.getHeaders().entrySet()
                         .stream()
@@ -101,9 +101,9 @@ public class MergeNotificationWebSocketHandler extends AbstractNotificationWebSo
                 Map<String, Object> submap = Map.of(
                         "payload", m.getPayload(),
                         "headers", headers);
-                return jacksonObjectMapper.writeValueAsString(submap);
+                sink.next(jacksonObjectMapper.writeValueAsString(submap));
             } catch (JsonProcessingException e) {
-                throw new UncheckedIOException(e);
+                sink.error(new NotificationServerRuntimeException("Error while generating JSON", e));
             }
         }).log(CATEGORY_WS_OUTPUT, Level.FINE).map(webSocketSession::textMessage);
     }
